@@ -1,4 +1,11 @@
 .env
+.env.*
+.venv
+.codex_tmp
+outputs
+*.pem
+*.key
+*.sql
 .git
 .idea
 .pytest_cache

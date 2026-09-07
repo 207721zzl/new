@@ -1,0 +1,3740 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EvidenceRAG",
+    "description": "多格式文档解析、结构感知父子切块、Dense+BM25 混合检索、Reranker、证据门控与可追溯引用。",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/auth/config": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Get Auth Client Config",
+        "description": "向静态前端公开非敏感的认证交互配置。",
+        "operationId": "get_auth_client_config_api_v1_auth_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthClientConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Register",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Login",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Get Current User",
+        "operationId": "get_current_user_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Change Password",
+        "operationId": "change_password_api_v1_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "admin",
+                    "employee"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "active",
+                    "disabled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "Create User",
+        "operationId": "create_user_api_v1_admin_users_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "patch": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "Update User",
+        "operationId": "update_user_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "Reset User Password",
+        "operationId": "reset_user_password_api_v1_admin_users__user_id__reset_password_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPasswordResetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "List Audit Logs",
+        "operationId": "list_audit_logs_api_v1_admin_audit_logs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuditList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/knowledge/documents/{document_id}": {
+      "delete": {
+        "tags": [
+          "administration"
+        ],
+        "summary": "Delete Knowledge Document",
+        "operationId": "delete_knowledge_document_api_v1_admin_knowledge_documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocumentDeleted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/pilot/overview": {
+      "get": {
+        "tags": [
+          "pilot-operations"
+        ],
+        "summary": "Get Pilot Overview",
+        "operationId": "get_pilot_overview_api_v1_admin_pilot_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/pilot/maintenance": {
+      "get": {
+        "tags": [
+          "pilot-operations"
+        ],
+        "summary": "Preview Pilot Maintenance",
+        "operationId": "preview_pilot_maintenance_api_v1_admin_pilot_maintenance_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotMaintenancePreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/pilot/maintenance/cleanup": {
+      "post": {
+        "tags": [
+          "pilot-operations"
+        ],
+        "summary": "Cleanup Pilot Data",
+        "operationId": "cleanup_pilot_data_api_v1_admin_pilot_maintenance_cleanup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PilotCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotCleanupResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "summary": "Readiness",
+        "operationId": "readiness_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs": {
+      "post": {
+        "summary": "Create Run",
+        "operationId": "create_run_api_v1_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}": {
+      "get": {
+        "summary": "Get Run",
+        "operationId": "get_run_api_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/events": {
+      "get": {
+        "summary": "Stream Run Events",
+        "operationId": "stream_run_events_api_v1_runs__run_id__events_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/answers": {
+      "post": {
+        "summary": "Answer Question",
+        "operationId": "answer_question_api_v1_answers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/answers": {
+      "post": {
+        "summary": "Answer Question",
+        "operationId": "answer_question_api_v1_knowledge_answers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/retrieval/search": {
+      "post": {
+        "summary": "Search Knowledge",
+        "operationId": "search_knowledge_api_v1_retrieval_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetrievalSearchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalSearchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations": {
+      "get": {
+        "summary": "List Conversations",
+        "operationId": "list_conversations_api_v1_conversations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversation_id}": {
+      "get": {
+        "summary": "Get Conversation",
+        "operationId": "get_conversation_api_v1_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feedback": {
+      "post": {
+        "summary": "Create Feedback",
+        "operationId": "create_feedback_api_v1_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/uploads": {
+      "post": {
+        "summary": "Upload Knowledge Files",
+        "operationId": "upload_knowledge_files_api_v1_knowledge_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_knowledge_files_api_v1_knowledge_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeUploadBatchCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/documents": {
+      "get": {
+        "summary": "List Knowledge Documents",
+        "description": "查看已经进入知识库的文档和父子块数量。",
+        "operationId": "list_knowledge_documents_api_v1_knowledge_documents_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocumentList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/uploads/{batch_id}": {
+      "get": {
+        "summary": "Get Knowledge Upload Batch",
+        "operationId": "get_knowledge_upload_batch_api_v1_knowledge_uploads__batch_id__get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeUploadBatchDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/index": {
+      "post": {
+        "summary": "Create Knowledge Index",
+        "operationId": "create_knowledge_index_api_v1_knowledge_index_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeIndexCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeIndexCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/index/{job_id}": {
+      "get": {
+        "summary": "Get Knowledge Index",
+        "operationId": "get_knowledge_index_api_v1_knowledge_index__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeIndexDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminAuditList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAuditSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AdminAuditList"
+      },
+      "AdminAuditSummary": {
+        "properties": {
+          "audit_id": {
+            "type": "string",
+            "title": "Audit Id"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "actor_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Username"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target_type": {
+            "type": "string",
+            "title": "Target Type"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "denied"
+            ],
+            "title": "Outcome"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audit_id",
+          "actor_user_id",
+          "actor_username",
+          "action",
+          "target_type",
+          "target_id",
+          "outcome",
+          "details",
+          "created_at"
+        ],
+        "title": "AdminAuditSummary"
+      },
+      "AdminPasswordResetRequest": {
+        "properties": {
+          "temporary_password": {
+            "type": "string",
+            "format": "password",
+            "title": "Temporary Password",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "temporary_password"
+        ],
+        "title": "AdminPasswordResetRequest"
+      },
+      "AdminUserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "employee"
+            ],
+            "title": "Role",
+            "default": "employee"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "display_name",
+          "password"
+        ],
+        "title": "AdminUserCreate"
+      },
+      "AdminUserList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AdminUserList"
+      },
+      "AdminUserResult": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AdminUserSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "title": "AdminUserResult"
+      },
+      "AdminUserSummary": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "employee"
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "disabled"
+            ],
+            "title": "Status"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          },
+          "failed_login_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failed Login Count"
+          },
+          "locked_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked Until"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "role",
+          "status",
+          "must_change_password",
+          "failed_login_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminUserSummary"
+      },
+      "AdminUserUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "employee"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "active",
+                  "disabled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "AdminUserUpdate"
+      },
+      "AuthClientConfig": {
+        "properties": {
+          "registration_enabled": {
+            "type": "boolean",
+            "title": "Registration Enabled"
+          },
+          "csrf_cookie_name": {
+            "type": "string",
+            "title": "Csrf Cookie Name"
+          },
+          "password_min_length": {
+            "type": "integer",
+            "title": "Password Min Length"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_enabled",
+          "csrf_cookie_name",
+          "password_min_length"
+        ],
+        "title": "AuthClientConfig"
+      },
+      "Body_upload_knowledge_files_api_v1_knowledge_uploads_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "recreate": {
+            "type": "boolean",
+            "title": "Recreate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_knowledge_files_api_v1_knowledge_uploads_post"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "format": "password",
+            "title": "Current Password",
+            "writeOnly": true
+          },
+          "new_password": {
+            "type": "string",
+            "format": "password",
+            "title": "New Password",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest"
+      },
+      "ConversationList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "offset"
+        ],
+        "title": "ConversationList"
+      },
+      "ConversationMessage": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "title": "Message Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "run_id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "ConversationMessage"
+      },
+      "ConversationSummary": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "run_id",
+          "title",
+          "messages",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationSummary"
+      },
+      "CurrentUser": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "employee"
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "disabled"
+            ],
+            "title": "Status"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "role",
+          "status",
+          "must_change_password"
+        ],
+        "title": "CurrentUser"
+      },
+      "FeedbackCreate": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Run Id"
+          },
+          "rating": {
+            "type": "integer",
+            "enum": [
+              -1,
+              1
+            ],
+            "title": "Rating"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "correction": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "rating"
+        ],
+        "title": "FeedbackCreate"
+      },
+      "FeedbackCreated": {
+        "properties": {
+          "feedback_id": {
+            "type": "string",
+            "title": "Feedback Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "recorded",
+            "title": "Status",
+            "default": "recorded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feedback_id"
+        ],
+        "title": "FeedbackCreated"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KnowledgeCitation": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Index"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "parent_chunk_id": {
+            "type": "string",
+            "title": "Parent Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "section_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Section Path"
+          },
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          },
+          "retrieval_score": {
+            "type": "number",
+            "title": "Retrieval Score"
+          },
+          "rerank_score": {
+            "type": "number",
+            "title": "Rerank Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "chunk_id",
+          "parent_chunk_id",
+          "document_id",
+          "title",
+          "source",
+          "version",
+          "updated_at",
+          "retrieval_score",
+          "rerank_score"
+        ],
+        "title": "KnowledgeCitation"
+      },
+      "KnowledgeDocumentDeleted": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "parent_chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parent Chunk Count"
+          },
+          "child_chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Child Chunk Count"
+          },
+          "status": {
+            "type": "string",
+            "const": "deleted",
+            "title": "Status",
+            "default": "deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "title",
+          "parent_chunk_count",
+          "child_chunk_count"
+        ],
+        "title": "KnowledgeDocumentDeleted"
+      },
+      "KnowledgeDocumentList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocumentSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "offset"
+        ],
+        "title": "KnowledgeDocumentList"
+      },
+      "KnowledgeDocumentSummary": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "doc_type": {
+            "type": "string",
+            "title": "Doc Type"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "index_status": {
+            "type": "string",
+            "title": "Index Status"
+          },
+          "parent_chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parent Chunk Count"
+          },
+          "child_chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Child Chunk Count"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "title",
+          "doc_type",
+          "source",
+          "version",
+          "language",
+          "index_status",
+          "parent_chunk_count",
+          "child_chunk_count",
+          "updated_at"
+        ],
+        "title": "KnowledgeDocumentSummary"
+      },
+      "KnowledgeIndexCreate": {
+        "properties": {
+          "source_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source File"
+          },
+          "recreate": {
+            "type": "boolean",
+            "title": "Recreate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "KnowledgeIndexCreate"
+      },
+      "KnowledgeIndexCreated": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "pending",
+            "title": "Status",
+            "default": "pending"
+          },
+          "status_url": {
+            "type": "string",
+            "title": "Status Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "status_url"
+        ],
+        "title": "KnowledgeIndexCreated"
+      },
+      "KnowledgeIndexDetail": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "source_file": {
+            "type": "string",
+            "title": "Source File"
+          },
+          "recreate": {
+            "type": "boolean",
+            "title": "Recreate"
+          },
+          "document_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Document Count"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Count"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "source_file",
+          "recreate",
+          "document_count",
+          "chunk_count",
+          "created_at"
+        ],
+        "title": "KnowledgeIndexDetail"
+      },
+      "KnowledgeUploadBatchCreated": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "pending",
+            "title": "Status",
+            "default": "pending"
+          },
+          "status_url": {
+            "type": "string",
+            "title": "Status Url"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeUploadItemCreated"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "status_url",
+          "items"
+        ],
+        "title": "KnowledgeUploadBatchCreated"
+      },
+      "KnowledgeUploadBatchDetail": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "partial_failed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "File Count"
+          },
+          "completed_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completed Count"
+          },
+          "failed_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failed Count"
+          },
+          "document_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Document Count"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeUploadItemDetail"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "status",
+          "file_count",
+          "completed_count",
+          "failed_count",
+          "document_count",
+          "chunk_count",
+          "created_at",
+          "items"
+        ],
+        "title": "KnowledgeUploadBatchDetail"
+      },
+      "KnowledgeUploadItemCreated": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "status_url": {
+            "type": "string",
+            "title": "Status Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "filename",
+          "status_url"
+        ],
+        "title": "KnowledgeUploadItemCreated"
+      },
+      "KnowledgeUploadItemDetail": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "File Size Bytes"
+          },
+          "document_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Document Count"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Count"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "filename",
+          "status",
+          "file_size_bytes",
+          "document_count",
+          "chunk_count",
+          "created_at"
+        ],
+        "title": "KnowledgeUploadItemDetail"
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "LoginResult": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/CurrentUser"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "expires_at"
+        ],
+        "title": "LoginResult"
+      },
+      "PilotAccountSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "active_admins": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Active Admins"
+          },
+          "active_employees": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Active Employees"
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Pending"
+          },
+          "disabled": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Disabled"
+          },
+          "active_sessions": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Active Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "active_admins",
+          "active_employees",
+          "pending",
+          "disabled",
+          "active_sessions"
+        ],
+        "title": "PilotAccountSummary"
+      },
+      "PilotCleanupRequest": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "PURGE_EXPIRED_PILOT_DATA",
+            "title": "Confirmation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "title": "PilotCleanupRequest"
+      },
+      "PilotCleanupResult": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "conversation_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Conversation Retention Days"
+          },
+          "session_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Session Retention Days"
+          },
+          "audit_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Audit Retention Days"
+          },
+          "conversations_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Conversations To Delete"
+          },
+          "sessions_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sessions To Delete"
+          },
+          "audit_logs_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Audit Logs To Delete"
+          },
+          "status": {
+            "type": "string",
+            "const": "completed",
+            "title": "Status",
+            "default": "completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "conversation_retention_days",
+          "session_retention_days",
+          "audit_retention_days",
+          "conversations_to_delete",
+          "sessions_to_delete",
+          "audit_logs_to_delete"
+        ],
+        "title": "PilotCleanupResult"
+      },
+      "PilotFeedbackSummary": {
+        "properties": {
+          "positive": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Positive"
+          },
+          "negative": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Negative"
+          },
+          "positive_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positive Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "positive",
+          "negative"
+        ],
+        "title": "PilotFeedbackSummary"
+      },
+      "PilotKnowledgeSummary": {
+        "properties": {
+          "documents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Documents"
+          },
+          "parent_chunks": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parent Chunks"
+          },
+          "child_chunks": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Child Chunks"
+          },
+          "indexed_source_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Indexed Source Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documents",
+          "parent_chunks",
+          "child_chunks",
+          "indexed_source_bytes"
+        ],
+        "title": "PilotKnowledgeSummary"
+      },
+      "PilotMaintenancePreview": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "conversation_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Conversation Retention Days"
+          },
+          "session_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Session Retention Days"
+          },
+          "audit_retention_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Audit Retention Days"
+          },
+          "conversations_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Conversations To Delete"
+          },
+          "sessions_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sessions To Delete"
+          },
+          "audit_logs_to_delete": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Audit Logs To Delete"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "conversation_retention_days",
+          "session_retention_days",
+          "audit_retention_days",
+          "conversations_to_delete",
+          "sessions_to_delete",
+          "audit_logs_to_delete"
+        ],
+        "title": "PilotMaintenancePreview"
+      },
+      "PilotOverview": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window_hours": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Window Hours"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/PilotRuntimeSummary"
+          },
+          "accounts": {
+            "$ref": "#/components/schemas/PilotAccountSummary"
+          },
+          "knowledge": {
+            "$ref": "#/components/schemas/PilotKnowledgeSummary"
+          },
+          "runs": {
+            "$ref": "#/components/schemas/PilotWorkloadSummary"
+          },
+          "indexing": {
+            "$ref": "#/components/schemas/PilotWorkloadSummary"
+          },
+          "feedback": {
+            "$ref": "#/components/schemas/PilotFeedbackSummary"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/PilotTokenSummary"
+          },
+          "disk_free_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Disk Free Bytes"
+          },
+          "model_state": {
+            "type": "string",
+            "title": "Model State"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window_hours",
+          "runtime",
+          "accounts",
+          "knowledge",
+          "runs",
+          "indexing",
+          "feedback",
+          "tokens",
+          "disk_free_bytes",
+          "model_state",
+          "warnings"
+        ],
+        "title": "PilotOverview"
+      },
+      "PilotRuntimeSummary": {
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Uptime Seconds"
+          },
+          "requests_total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Requests Total"
+          },
+          "responses_4xx": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Responses 4Xx"
+          },
+          "responses_5xx": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Responses 5Xx"
+          },
+          "latency_sample_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Latency Sample Count"
+          },
+          "average_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Latency Ms"
+          },
+          "p95_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "started_at",
+          "uptime_seconds",
+          "requests_total",
+          "responses_4xx",
+          "responses_5xx",
+          "latency_sample_count"
+        ],
+        "title": "PilotRuntimeSummary"
+      },
+      "PilotTokenSummary": {
+        "properties": {
+          "prompt_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completion Tokens"
+          },
+          "total_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens"
+        ],
+        "title": "PilotTokenSummary"
+      },
+      "PilotWorkloadSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "queued": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Queued"
+          },
+          "running": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Running"
+          },
+          "completed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failed"
+          },
+          "stale": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Stale"
+          },
+          "success_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success Rate"
+          },
+          "average_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Duration Ms"
+          },
+          "p95_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "stale"
+        ],
+        "title": "PilotWorkloadSummary"
+      },
+      "QueryDecision": {
+        "properties": {
+          "original_query": {
+            "type": "string",
+            "title": "Original Query"
+          },
+          "standalone_question": {
+            "type": "string",
+            "title": "Standalone Question"
+          },
+          "rewritten_query": {
+            "type": "string",
+            "title": "Rewritten Query"
+          },
+          "applied": {
+            "type": "boolean",
+            "title": "Applied"
+          },
+          "fallback": {
+            "type": "boolean",
+            "title": "Fallback"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "original_query",
+          "standalone_question",
+          "rewritten_query",
+          "applied",
+          "fallback",
+          "reason"
+        ],
+        "title": "QueryDecision"
+      },
+      "ReadinessResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status"
+          },
+          "checks": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checks"
+          },
+          "knowledge_chunks": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Knowledge Chunks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "checks",
+          "knowledge_chunks"
+        ],
+        "title": "ReadinessResult"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "display_name",
+          "password"
+        ],
+        "title": "RegisterRequest"
+      },
+      "RegistrationResult": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/CurrentUser"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "message"
+        ],
+        "title": "RegistrationResult"
+      },
+      "RetrievalHitResult": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "parent_chunk_id": {
+            "type": "string",
+            "title": "Parent Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "matched_content": {
+            "type": "string",
+            "title": "Matched Content"
+          },
+          "parent_content": {
+            "type": "string",
+            "title": "Parent Content"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "section_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Section Path"
+          },
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          },
+          "retrieval_score": {
+            "type": "number",
+            "title": "Retrieval Score"
+          },
+          "rerank_score": {
+            "type": "number",
+            "title": "Rerank Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "chunk_id",
+          "parent_chunk_id",
+          "document_id",
+          "title",
+          "matched_content",
+          "parent_content",
+          "source",
+          "version",
+          "retrieval_score",
+          "rerank_score"
+        ],
+        "title": "RetrievalHitResult"
+      },
+      "RetrievalSearchCreate": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "rewrite": {
+            "type": "boolean",
+            "title": "Rewrite",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "RetrievalSearchCreate"
+      },
+      "RetrievalSearchResult": {
+        "properties": {
+          "original_query": {
+            "type": "string",
+            "title": "Original Query"
+          },
+          "retrieval_query": {
+            "type": "string",
+            "title": "Retrieval Query"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueryDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalHitResult"
+            },
+            "type": "array",
+            "title": "Hits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "original_query",
+          "retrieval_query",
+          "hits"
+        ],
+        "title": "RetrievalSearchResult"
+      },
+      "RunCreate": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "RunCreate"
+      },
+      "RunCreated": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued",
+            "title": "Status"
+          },
+          "events_url": {
+            "type": "string",
+            "title": "Events Url"
+          },
+          "result_url": {
+            "type": "string",
+            "title": "Result Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "conversation_id",
+          "status",
+          "events_url",
+          "result_url"
+        ],
+        "title": "RunCreated"
+      },
+      "RunDetail": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "current_node": {
+            "type": "string",
+            "title": "Current Node"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueryDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeCitation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/RunEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "conversation_id",
+          "question",
+          "status",
+          "current_node",
+          "created_at"
+        ],
+        "title": "RunDetail"
+      },
+      "RunEvent": {
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Sequence"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "node": {
+            "type": "string",
+            "title": "Node"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sequence",
+          "type",
+          "node",
+          "message",
+          "status",
+          "timestamp"
+        ],
+        "title": "RunEvent"
+      },
+      "RunFailure": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "RunFailure"
+      },
+      "RunResult": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "completed",
+            "title": "Status"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueryDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeCitation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "answer"
+        ],
+        "title": "RunResult"
+      },
+      "TokenUsage": {
+        "properties": {
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Tokens"
+          }
+        },
+        "type": "object",
+        "title": "TokenUsage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

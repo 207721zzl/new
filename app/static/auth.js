@@ -145,5 +145,8 @@ ui.loginTab.addEventListener("click", () => selectTab("login"));
 ui.registerTab.addEventListener("click", () => selectTab("register"));
 ui.loginForm.addEventListener("submit", submitLogin);
 ui.registerForm.addEventListener("submit", submitRegistration);
+if (new URLSearchParams(window.location.search).get("tab") === "register") {
+  selectTab("register");
+}
 loadClientConfig();
 redirectAuthenticatedUser();

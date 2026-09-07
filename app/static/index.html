@@ -3,142 +3,193 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="EvidenceRAG：可追溯的企业文档知识问答" />
-    <title>EvidenceRAG · 文档知识问答</title>
+    <meta name="description" content="InsightAgent：可追溯的企业 RAG 智能问答" />
+    <title>InsightAgent · RAG 智能问答</title>
     <link rel="stylesheet" href="/static/styles.css" />
     <script defer src="/static/app.js"></script>
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar">
-        <a class="brand" href="/" aria-label="EvidenceRAG 首页">
-          <span class="brand-mark">ER</span>
-          <span>
-            <strong>EvidenceRAG</strong>
-            <small>文档知识问答</small>
+      <aside class="sidebar" id="app-sidebar" aria-label="会话侧栏">
+        <a class="brand" href="/" aria-label="InsightAgent 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6M12 3V1M7 7h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3Z"/><path d="M8 12h.01M16 12h.01M9 16h6"/></svg>
+          </span>
+          <span class="brand-copy">
+            <strong>RAG 智能问答</strong>
+            <small>文档知识问答 · InsightAgent</small>
           </span>
         </a>
 
-        <button class="new-chat" type="button" id="new-chat-button">
-          <span>＋</span> 新建会话
-        </button>
+        <div class="sidebar-scroll">
+          <section class="quick-start-card" aria-labelledby="quick-start-title">
+            <div class="quick-card-heading">
+              <span id="quick-start-title">快速开始</span>
+              <span class="new-badge">新内容</span>
+            </div>
+            <button class="new-chat" type="button" id="new-chat-button">
+              <span class="new-chat-icon" aria-hidden="true">＋</span>
+              <span><strong>新建对话</strong><small>从空白开始</small></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <div class="knowledge-ready">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V5H6.5A2.5 2.5 0 0 0 4 7.5v12Z"/><path d="M8 8h8M8 11h6"/></svg>
+              企业知识库已接入
+            </div>
+          </section>
 
-        <section class="side-section suggestions-section">
-          <p class="section-label">试试这样问</p>
-          <div class="suggestions">
-            <button type="button" data-question="请概括知识库里最重要的内容">概括核心内容</button>
-            <button type="button" data-question="文档中有哪些关键流程和注意事项？">查找流程与注意事项</button>
-            <button type="button" data-question="不同文档对同一问题的说明是否一致？">跨文档对比</button>
-          </div>
-        </section>
+          <section class="history-search-card" aria-labelledby="history-search-title">
+            <div class="search-card-heading">
+              <span id="history-search-title">搜索对话</span>
+              <kbd>Ctrl / Cmd + K</kbd>
+            </div>
+            <label class="history-search" for="history-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+              <input id="history-search" type="search" maxlength="128" placeholder="搜索对话…" autocomplete="off" />
+            </label>
+          </section>
 
-        <section class="history-section" aria-labelledby="history-heading">
-          <div class="history-heading">
-            <p class="section-label" id="history-heading">我的会话</p>
-            <button type="button" id="refresh-history" aria-label="刷新会话">↻</button>
-          </div>
-          <div class="history-list" id="history-list">
-            <p class="history-empty">正在加载…</p>
-          </div>
-        </section>
+          <section class="history-section" aria-labelledby="history-heading">
+            <div class="history-heading">
+              <p class="section-label" id="history-heading">最近对话</p>
+              <button type="button" id="refresh-history" aria-label="刷新会话" title="刷新会话">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.68"/><path d="M20 4v4.68h-4.68"/></svg>
+              </button>
+            </div>
+            <div class="history-list" id="history-list">
+              <p class="history-empty">正在加载…</p>
+            </div>
+          </section>
+        </div>
 
-        <section class="account-card">
-          <div class="account-avatar" id="account-avatar">用</div>
-          <div class="account-copy">
-            <strong id="account-name">正在验证身份</strong>
-            <small id="account-role">—</small>
+        <div class="sidebar-bottom">
+          <div class="service-status">
+            <span class="status-dot" id="health-dot"></span>
+            <span id="health-label">正在检查服务</span>
           </div>
-          <button type="button" class="account-menu" id="change-password-button" title="修改密码">密码</button>
-          <button type="button" class="logout-button" id="logout-button">退出</button>
-        </section>
-
-        <div class="sidebar-footer">
-          <span class="status-dot" id="health-dot"></span>
-          <span id="health-label">正在检查服务</span>
+          <section class="account-card">
+            <div class="account-avatar" id="account-avatar">用</div>
+            <div class="account-copy">
+              <strong id="account-name">正在验证身份</strong>
+              <small id="account-role">—</small>
+            </div>
+            <div class="account-actions">
+              <button type="button" id="change-password-button" title="修改密码" aria-label="修改密码">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+              </button>
+              <button type="button" id="logout-button" title="退出登录" aria-label="退出登录">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 3h4a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-4"/></svg>
+              </button>
+            </div>
+          </section>
         </div>
       </aside>
 
+      <button class="sidebar-scrim" id="sidebar-scrim" type="button" aria-label="关闭侧栏" hidden></button>
+
       <main class="workspace">
         <header class="topbar">
-          <div>
-            <p class="eyebrow">EVIDENCE-GROUNDED ANSWERS</p>
-            <h1>让每个答案都有出处</h1>
+          <div class="topbar-title">
+            <button class="mobile-sidebar-button" id="mobile-sidebar-button" type="button" aria-label="打开会话侧栏">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 id="workspace-title">新对话</h1>
           </div>
-          <div class="run-badge" id="run-badge" hidden>
-            <span></span>
-            <strong id="run-status">处理中</strong>
+          <div class="topbar-actions">
+            <div class="run-badge" id="run-badge" hidden>
+              <span></span><strong id="run-status">处理中</strong>
+            </div>
+            <button class="evidence-toggle" id="evidence-toggle" type="button" aria-controls="evidence-panel" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V5H6.5A2.5 2.5 0 0 0 4 7.5v12Z"/><path d="M8 8h8M8 11h6"/></svg>
+              <span>证据</span><strong id="evidence-count">0</strong>
+            </button>
           </div>
         </header>
 
-        <div class="content-grid">
-          <section class="conversation-panel">
-            <div class="conversation" id="conversation" aria-live="polite">
-              <article class="message assistant-message intro-message">
-                <div class="avatar">ER</div>
-                <div class="message-body">
-                  <p class="message-label">EvidenceRAG</p>
-                  <h2>从你的文档里找到可靠答案</h2>
-                  <p>我会先理解问题，再进行混合检索和重排，最后只根据命中的父块生成回答，并附上章节和页码。</p>
-                </div>
-              </article>
+        <div class="workspace-canvas" id="workspace-canvas">
+          <section class="welcome-view" id="welcome-view">
+            <div class="hero-badge">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M12 3V1M7 7h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3Z"/><path d="M8 12h.01M16 12h.01M9 16h6"/></svg>
+              InsightAgent
             </div>
-
-            <form class="question-form" id="question-form">
-              <label for="question-input">向知识库提问</label>
-              <div class="input-row">
-                <textarea
-                  id="question-input"
-                  name="question"
-                  rows="1"
-                  maxlength="2000"
-                  placeholder="例如：文档里对数据保留期限是怎么规定的？"
-                  required
-                ></textarea>
-                <button type="submit" id="submit-button" aria-label="发送问题">发送</button>
-              </div>
-              <div class="form-foot">
-                <span>Enter 发送 · Shift + Enter 换行</span>
-                <label>召回 <select id="top-k"><option>3</option><option selected>5</option><option>8</option><option>10</option></select> 条</label>
-              </div>
-            </form>
+            <h2>把问题变成<span>清晰答案</span></h2>
+            <p>理解上下文、检索企业知识，并用可追溯证据回答每个问题</p>
           </section>
 
-          <aside class="evidence-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">RAG TRACE</p>
-                <h2>检索与证据</h2>
+          <div class="conversation" id="conversation" aria-live="polite" hidden></div>
+
+          <form class="question-form" id="question-form">
+            <label class="sr-only" for="question-input">向知识库提问</label>
+            <div class="input-row">
+              <textarea id="question-input" name="question" rows="1" maxlength="2000" placeholder="输入需要深入分析的问题…" required></textarea>
+              <div class="composer-controls">
+                <label class="retrieval-mode" title="调整返回的证据数量">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0-2 7.46V17a4 4 0 0 0 7 2.65A4 4 0 0 0 18 16v-.54A4 4 0 0 0 16 8V7a4 4 0 0 0-4-4Z"/><path d="M9 8.5A3 3 0 0 0 12 11M15 8.5A3 3 0 0 1 12 11M12 11v8"/></svg>
+                  <span>深度检索</span>
+                  <select id="top-k" aria-label="召回证据数量">
+                    <option value="3">3 条证据</option><option value="5" selected>5 条证据</option><option value="8">8 条证据</option><option value="10">10 条证据</option>
+                  </select>
+                </label>
+                <button type="submit" id="submit-button" aria-label="发送问题" title="发送问题">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                </button>
               </div>
-              <span id="evidence-count">0 条</span>
             </div>
+          </form>
 
-            <section class="trace-card">
-              <ol class="timeline" id="timeline">
-                <li class="muted"><span>1</span><p>提交问题后，这里会显示查询改写、混合检索、重排和生成进度。</p></li>
-              </ol>
-            </section>
+          <div class="composer-help" id="composer-help">
+            <p><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M8.5 14.5A6 6 0 1 1 15.5 14.5c-1 .7-1.5 1.5-1.5 2.5h-4c0-1-.5-1.8-1.5-2.5Z"/></svg>系统会展示检索过程与引用来源，方便核对答案。</p>
+            <span><kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行</span>
+          </div>
 
-            <section class="query-card" id="query-card" hidden>
-              <p class="section-label">检索查询</p>
-              <div><small>独立问题</small><p id="standalone-question"></p></div>
-              <div><small>改写结果</small><p id="rewritten-query"></p></div>
-            </section>
-
-            <section class="citation-section" id="citation-section" hidden>
-              <p class="section-label">引用证据</p>
-              <div class="citation-list" id="citation-list"></div>
-            </section>
-          </aside>
+          <section class="starter-section" id="starter-section" aria-labelledby="starter-title">
+            <div class="starter-title" id="starter-title"><span></span>试试这些开场<span></span></div>
+            <div class="suggestions">
+              <button type="button" data-question="请概括知识库里最重要的内容">
+                <span class="suggestion-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V5H6.5A2.5 2.5 0 0 0 4 7.5v12Z"/><path d="M8 8h8M8 11h6"/></svg></span>
+                <span><strong>核心内容</strong><small>概括知识库中的重点</small></span>
+                <svg class="suggestion-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button type="button" data-question="文档中有哪些关键流程和注意事项？">
+                <span class="suggestion-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>
+                <span><strong>流程规范</strong><small>查找步骤与注意事项</small></span>
+                <svg class="suggestion-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button type="button" data-question="不同文档对同一问题的说明是否一致？">
+                <span class="suggestion-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 6v5c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                <span><strong>交叉核验</strong><small>对比多份文档的说明</small></span>
+                <svg class="suggestion-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </section>
         </div>
+
+        <aside class="evidence-panel" id="evidence-panel" aria-label="检索与证据" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">ANSWER SOURCES</p><h2>检索与证据</h2></div>
+            <button type="button" id="evidence-close" aria-label="关闭证据面板">×</button>
+          </div>
+          <section class="trace-card">
+            <p class="panel-section-title">处理过程</p>
+            <ol class="timeline" id="timeline"><li class="muted"><span>1</span><p>提交问题后，这里会展示理解、检索、重排和生成进度。</p></li></ol>
+          </section>
+          <section class="query-card" id="query-card" hidden>
+            <p class="panel-section-title">检索查询</p>
+            <div><small>独立问题</small><p id="standalone-question"></p></div>
+            <div><small>改写结果</small><p id="rewritten-query"></p></div>
+          </section>
+          <section class="citation-section" id="citation-section" hidden>
+            <p class="panel-section-title">引用证据</p>
+            <div class="citation-list" id="citation-list"></div>
+          </section>
+        </aside>
       </main>
     </div>
+
     <dialog class="account-dialog" id="password-dialog">
       <form method="dialog" id="password-form">
         <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">ACCOUNT SECURITY</p>
-            <h2>修改登录密码</h2>
-          </div>
+          <div><p class="eyebrow">ACCOUNT SECURITY</p><h2>修改登录密码</h2></div>
           <button type="button" class="dialog-close" id="password-close" aria-label="关闭">×</button>
         </div>
         <p class="dialog-note" id="password-note">新密码至少 12 个字符。修改后需要重新登录。</p>

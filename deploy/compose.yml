@@ -1,0 +1,588 @@
+name: evidencerag-micro
+services:
+  identity:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-identity:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: identity
+      IDENTITY_DATABASE_URL: mysql+asyncmy://identity_app:${IDENTITY_DB_PASSWORD}@mysql:3306/identity_db?charset=utf8mb4
+    command:
+    - uvicorn
+    - services.identity.api:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    restart: unless-stopped
+    depends_on:
+      migrate-identity:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  migrate-identity:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-migrate-identity:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: identity
+      IDENTITY_DATABASE_URL: mysql+asyncmy://identity_migration:${IDENTITY_MIGRATION_PASSWORD}@mysql:3306/identity_db?charset=utf8mb4
+    command:
+    - alembic
+    - -c
+    - services/identity/alembic.ini
+    - upgrade
+    - head
+    restart: 'no'
+    depends_on:
+      mysql:
+        condition: service_healthy
+  chat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-chat:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: chat
+      CHAT_DATABASE_URL: mysql+asyncmy://chat_app:${CHAT_DB_PASSWORD}@mysql:3306/chat_db?charset=utf8mb4
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+    command:
+    - uvicorn
+    - services.chat.api:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    restart: unless-stopped
+    depends_on:
+      migrate-chat:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  migrate-chat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-migrate-chat:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: chat
+      CHAT_DATABASE_URL: mysql+asyncmy://chat_migration:${CHAT_MIGRATION_PASSWORD}@mysql:3306/chat_db?charset=utf8mb4
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+    command:
+    - alembic
+    - -c
+    - services/chat/alembic.ini
+    - upgrade
+    - head
+    restart: 'no'
+    depends_on:
+      mysql:
+        condition: service_healthy
+  knowledge:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-knowledge:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: knowledge
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_app:${KNOWLEDGE_DB_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+      OBJECT_BUCKET: knowledge-uploads
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+    command:
+    - uvicorn
+    - services.knowledge.api:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    restart: unless-stopped
+    depends_on:
+      migrate-knowledge:
+        condition: service_completed_successfully
+      object-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  migrate-knowledge:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-migrate-knowledge:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: knowledge
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_migration:${KNOWLEDGE_MIGRATION_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+      OBJECT_BUCKET: knowledge-uploads
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+    command:
+    - alembic
+    - -c
+    - services/knowledge/alembic.ini
+    - upgrade
+    - head
+    restart: 'no'
+    depends_on:
+      mysql:
+        condition: service_healthy
+  chat-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-chat-worker:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: chat
+      CHAT_DATABASE_URL: mysql+asyncmy://chat_app:${CHAT_DB_PASSWORD}@mysql:3306/chat_db?charset=utf8mb4
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      WORKER_DOMAIN: chat
+    command:
+    - celery
+    - -A
+    - packages.platform.celery_app:celery
+    - worker
+    - --loglevel=INFO
+    - --concurrency=1
+    - -Q
+    - chat
+    restart: unless-stopped
+    depends_on:
+      migrate-chat:
+        condition: service_completed_successfully
+      queue:
+        condition: service_healthy
+  chat-dispatcher:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-chat-dispatcher:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: chat
+      CHAT_DATABASE_URL: mysql+asyncmy://chat_app:${CHAT_DB_PASSWORD}@mysql:3306/chat_db?charset=utf8mb4
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      WORKER_DOMAIN: chat
+    command:
+    - python
+    - -m
+    - packages.platform.celery_app
+    restart: unless-stopped
+    depends_on:
+      migrate-chat:
+        condition: service_completed_successfully
+      queue:
+        condition: service_healthy
+  ingestion-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: ingestion
+    image: evidencerag-ingestion-worker:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: knowledge
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_app:${KNOWLEDGE_DB_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+      OBJECT_BUCKET: knowledge-uploads
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+      WORKER_DOMAIN: knowledge
+    command:
+    - celery
+    - -A
+    - packages.platform.celery_app:celery
+    - worker
+    - --loglevel=INFO
+    - --concurrency=1
+    - -Q
+    - knowledge
+    restart: unless-stopped
+    depends_on:
+      migrate-knowledge:
+        condition: service_completed_successfully
+      queue:
+        condition: service_healthy
+  knowledge-dispatcher:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-knowledge-dispatcher:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: knowledge
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_app:${KNOWLEDGE_DB_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+      OBJECT_BUCKET: knowledge-uploads
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+      WORKER_DOMAIN: knowledge
+    command:
+    - python
+    - -m
+    - packages.platform.celery_app
+    restart: unless-stopped
+    depends_on:
+      migrate-knowledge:
+        condition: service_completed_successfully
+      queue:
+        condition: service_healthy
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-gateway:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: gateway
+    command:
+    - uvicorn
+    - services.gateway.api:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    ports:
+    - 127.0.0.1:${MICRO_API_PORT:-18000}:8000
+    depends_on:
+      limits:
+        condition: service_healthy
+  inference:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.inference
+    image: evidencerag-inference:${RELEASE_TAG:-local}
+    gpus: all
+    restart: unless-stopped
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      EMBEDDING_MODEL: /models/bge-m3
+      RERANKER_MODEL: /models/reranker
+      EMBEDDING_DEVICE: cuda
+      RERANKER_DEVICE: cuda
+      SERVICE_NAME: inference
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+    volumes:
+    - ${BGE_M3_HOST_PATH:?Set BGE_M3_HOST_PATH}:/models/bge-m3:ro
+    - ${RERANKER_HOST_PATH:?Set RERANKER_HOST_PATH}:/models/reranker:ro
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/ready',timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MICRO_MYSQL_ROOT_PASSWORD}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD}
+      KNOWLEDGE_DB_PASSWORD: ${KNOWLEDGE_DB_PASSWORD}
+      IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD}
+      CHAT_MIGRATION_PASSWORD: ${CHAT_MIGRATION_PASSWORD}
+      KNOWLEDGE_MIGRATION_PASSWORD: ${KNOWLEDGE_MIGRATION_PASSWORD}
+    volumes:
+    - micro-mysql:/var/lib/mysql
+    - ./mysql-init.sh:/docker-entrypoint-initdb.d/01-domains.sh:ro
+    ports:
+    - 127.0.0.1:${MICRO_MYSQL_PORT:-23306}:3306
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysqladmin ping -h localhost -uroot --silent
+      interval: 10s
+      timeout: 5s
+      retries: 15
+  queue:
+    image: redis:7.4.2-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    - --maxmemory-policy
+    - noeviction
+    volumes:
+    - micro-queue:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  limits:
+    image: redis:7.4.2-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --maxmemory
+    - 256mb
+    - --maxmemory-policy
+    - allkeys-lru
+    volumes:
+    - micro-limits:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  objects:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    command:
+    - server
+    - /data
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${OBJECT_SECRET_KEY}
+    volumes:
+    - micro-objects:/data
+    restart: unless-stopped
+  milvus-objects:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    command:
+    - server
+    - /data
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${OBJECT_SECRET_KEY}
+    volumes:
+    - micro-milvus-objects:/data
+    restart: unless-stopped
+  object-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cpu
+      target: base
+    image: evidencerag-object-init:${RELEASE_TAG:-local}
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
+      MODEL_PRELOAD_ENABLED: 'false'
+      MODEL_WARMUP_ENABLED: 'false'
+      PILOT_RECONCILE_INTERRUPTED_TASKS: 'false'
+      APP_ENVIRONMENT: production
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      BROKER_URL: redis://queue:6379/0
+      RATE_LIMIT_URL: redis://limits:6379/0
+      SERVICE_NAME: knowledge
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_app:${KNOWLEDGE_DB_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+      OBJECT_BUCKET: knowledge-uploads
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-evidence_rag_knowledge}
+    command:
+    - python
+    - -c
+    - from services.knowledge.objects import ObjectStore; from packages.platform.config
+      import settings; c=ObjectStore().client; names=[b['Name'] for b in c.list_buckets()['Buckets']];
+      c.create_bucket(Bucket=settings().object_bucket) if settings().object_bucket
+      not in names else None
+    restart: on-failure
+    depends_on:
+      objects:
+        condition: service_started
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.25
+    command:
+    - etcd
+    - -advertise-client-urls=http://etcd:2379
+    - -listen-client-urls=http://0.0.0.0:2379
+    - --data-dir=/etcd
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: '1000'
+    volumes:
+    - micro-etcd:/etcd
+    restart: unless-stopped
+  milvus:
+    image: milvusdb/milvus:v3.0-beta
+    command:
+    - milvus
+    - run
+    - standalone
+    security_opt:
+    - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: milvus-objects:9000
+      MINIO_ACCESS_KEY_ID: ${OBJECT_ACCESS_KEY}
+      MINIO_SECRET_ACCESS_KEY: ${OBJECT_SECRET_KEY}
+      MINIO_REGION: us-east-1
+    volumes:
+    - micro-milvus:/var/lib/milvus
+    depends_on:
+    - etcd
+    - milvus-objects
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:9091/healthz
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+volumes:
+  micro-mysql: {}
+  micro-queue: {}
+  micro-limits: {}
+  micro-objects: {}
+  micro-milvus-objects: {}
+  micro-etcd: {}
+  micro-milvus: {}

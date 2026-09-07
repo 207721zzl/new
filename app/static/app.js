@@ -23,6 +23,16 @@ const ui = {
   accountRole: document.querySelector("#account-role"),
   logout: document.querySelector("#logout-button"),
   changePassword: document.querySelector("#change-password-button"),
+  workspaceCanvas: document.querySelector("#workspace-canvas"),
+  welcomeView: document.querySelector("#welcome-view"),
+  workspaceTitle: document.querySelector("#workspace-title"),
+  historySearch: document.querySelector("#history-search"),
+  evidenceToggle: document.querySelector("#evidence-toggle"),
+  evidencePanel: document.querySelector("#evidence-panel"),
+  evidenceClose: document.querySelector("#evidence-close"),
+  sidebar: document.querySelector("#app-sidebar"),
+  sidebarScrim: document.querySelector("#sidebar-scrim"),
+  mobileSidebarButton: document.querySelector("#mobile-sidebar-button"),
   passwordDialog: document.querySelector("#password-dialog"),
   passwordForm: document.querySelector("#password-form"),
   passwordClose: document.querySelector("#password-close"),
@@ -41,6 +51,7 @@ const state = {
   user: null,
   passwordChangeForced: false,
   csrfCookieName: "evidence_rag_csrf",
+  conversations: [],
 };
 
 const nodeLabels = {
@@ -120,7 +131,26 @@ function resizeTextarea() {
   ui.question.style.height = `${Math.min(ui.question.scrollHeight, 160)}px`;
 }
 
+function setConversationMode(active, title = "新对话") {
+  ui.workspaceCanvas.classList.toggle("conversation-active", active);
+  ui.welcomeView.hidden = active;
+  ui.conversation.hidden = !active;
+  ui.workspaceTitle.textContent = title || "新对话";
+}
+
+function setEvidenceOpen(open) {
+  ui.evidencePanel.hidden = !open;
+  ui.evidenceToggle.setAttribute("aria-expanded", String(open));
+}
+
+function setSidebarOpen(open) {
+  ui.sidebar.classList.toggle("open", open);
+  ui.sidebarScrim.hidden = !open;
+  ui.mobileSidebarButton.setAttribute("aria-expanded", String(open));
+}
+
 function appendUserMessage(content) {
+  setConversationMode(true, state.conversationId ? ui.workspaceTitle.textContent : content);
   const article = document.createElement("article");
   article.className = "message user-message";
   const body = document.createElement("div");
@@ -131,7 +161,26 @@ function appendUserMessage(content) {
   ui.conversation.scrollTop = ui.conversation.scrollHeight;
 }
 
-function appendAssistantMessage(answer, citations) {
+async function submitFeedback(runId, rating, actions) {
+  if (!runId || actions.dataset.submitted === "true") return;
+  const buttons = Array.from(actions.querySelectorAll("button"));
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    await request("/api/v1/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId, rating }),
+    });
+    actions.dataset.submitted = "true";
+    actions.querySelector("[data-rating=\"" + rating + "\"]")?.classList.add("selected");
+    showToast("感谢反馈，已记录");
+  } catch (error) {
+    buttons.forEach((button) => { button.disabled = false; });
+    showToast(error.message, true);
+  }
+}
+
+function appendAssistantMessage(answer, citations, runId = null) {
   const article = document.createElement("article");
   article.className = "message assistant-message assistant-answer";
   const avatar = document.createElement("div");
@@ -158,6 +207,28 @@ function appendAssistantMessage(answer, citations) {
     });
     body.append(links);
   }
+  if (runId) {
+    const actions = document.createElement("div");
+    actions.className = "answer-actions";
+    const prompt = document.createElement("span");
+    prompt.textContent = "这个回答有帮助吗？";
+    const positive = document.createElement("button");
+    positive.type = "button";
+    positive.dataset.rating = "1";
+    positive.setAttribute("aria-label", "回答有帮助");
+    positive.title = "有帮助";
+    positive.textContent = "👍";
+    const negative = document.createElement("button");
+    negative.type = "button";
+    negative.dataset.rating = "-1";
+    negative.setAttribute("aria-label", "回答没有帮助");
+    negative.title = "没有帮助";
+    negative.textContent = "👎";
+    positive.addEventListener("click", () => submitFeedback(runId, 1, actions));
+    negative.addEventListener("click", () => submitFeedback(runId, -1, actions));
+    actions.append(prompt, positive, negative);
+    body.append(actions);
+  }
   article.append(avatar, body);
   ui.conversation.append(article);
   ui.conversation.scrollTop = ui.conversation.scrollHeight;
@@ -168,10 +239,12 @@ function resetEvidence() {
   ui.queryCard.hidden = true;
   ui.citationSection.hidden = true;
   ui.citationList.innerHTML = "";
-  ui.evidenceCount.textContent = "0 条";
+  ui.evidenceCount.textContent = "0";
+  ui.evidenceToggle.classList.remove("has-data");
 }
 
 function addTrace(event) {
+  ui.evidenceToggle.classList.add("has-data");
   const item = document.createElement("li");
   if (event.status === "failed") item.classList.add("failed");
   const index = document.createElement("span");
@@ -202,7 +275,8 @@ function locationLabel(citation) {
 
 function renderCitations(citations) {
   ui.citationList.innerHTML = "";
-  ui.evidenceCount.textContent = `${citations.length} 条`;
+  ui.evidenceCount.textContent = String(citations.length);
+  ui.evidenceToggle.classList.toggle("has-data", citations.length > 0 || ui.timeline.children.length > 0);
   ui.citationSection.hidden = citations.length === 0;
   citations.forEach((citation) => {
     const card = document.createElement("article");
@@ -230,6 +304,7 @@ function renderCitations(citations) {
 }
 
 function focusCitation(index) {
+  setEvidenceOpen(true);
   const card = document.querySelector(`#citation-${index}`);
   if (!card) return;
   card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -242,7 +317,7 @@ async function finishRun(resultUrl) {
   if (result.status === "failed") throw new Error(result.error?.message || "问答任务失败");
   renderQuery(result.query);
   renderCitations(result.citations || []);
-  appendAssistantMessage(result.answer || "没有生成回答。", result.citations || []);
+  appendAssistantMessage(result.answer || "没有生成回答。", result.citations || [], result.run_id);
   if (result.conversation_id) state.conversationId = result.conversation_id;
   setRunning(false);
   await loadConversations();
@@ -325,15 +400,11 @@ function newConversation() {
   state.conversationId = null;
   setRunning(false);
   resetEvidence();
-  ui.conversation.innerHTML = `
-    <article class="message assistant-message intro-message">
-      <div class="avatar">ER</div>
-      <div class="message-body">
-        <p class="message-label">EvidenceRAG</p>
-        <h2>新会话已经准备好了</h2>
-        <p>提出一个需要从知识库查证的问题，我会返回答案和可追溯引用。</p>
-      </div>
-    </article>`;
+  setEvidenceOpen(false);
+  setConversationMode(false, "新对话");
+  ui.conversation.innerHTML = "";
+  ui.question.value = "";
+  resizeTextarea();
   ui.question.focus();
   markActiveConversation();
 }
@@ -354,24 +425,53 @@ function renderStoredConversation(conversation) {
   setRunning(false);
   resetEvidence();
   ui.conversation.innerHTML = "";
-  (conversation.messages || []).forEach((message) => {
+  const messages = conversation.messages || [];
+  messages.forEach((message) => {
     if (message.role === "user") appendUserMessage(message.content);
-    else appendAssistantMessage(message.content, []);
+    else appendAssistantMessage(message.content, [], message.run_id);
   });
-  if (!(conversation.messages || []).length) newConversation();
+  setConversationMode(messages.length > 0, conversation.title || "未命名会话");
+  setSidebarOpen(false);
   markActiveConversation();
 }
 
-function renderConversationHistory(items) {
+function conversationGroup(updatedAt) {
+  const date = new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) return "更早";
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const days = Math.floor((today - itemDay) / 86400000);
+  if (days <= 0) return "今天";
+  if (days < 7) return "7 天内";
+  return "更早";
+}
+
+function renderConversationHistory(items = state.conversations) {
+  state.conversations = items;
   ui.historyList.innerHTML = "";
-  if (!items.length) {
+  const query = ui.historySearch.value.trim().toLocaleLowerCase("zh-CN");
+  const filtered = items.filter((conversation) => {
+    const title = conversation.title || "未命名会话";
+    return !query || title.toLocaleLowerCase("zh-CN").includes(query);
+  });
+  if (!filtered.length) {
     const empty = document.createElement("p");
     empty.className = "history-empty";
-    empty.textContent = "还没有会话记录";
+    empty.textContent = query ? "没有匹配的对话" : "还没有会话记录";
     ui.historyList.append(empty);
     return;
   }
-  items.forEach((conversation) => {
+  let lastGroup = null;
+  filtered.forEach((conversation) => {
+    const groupName = conversationGroup(conversation.updated_at);
+    if (groupName !== lastGroup) {
+      const label = document.createElement("p");
+      label.className = "history-group-label";
+      label.textContent = groupName;
+      ui.historyList.append(label);
+      lastGroup = groupName;
+    }
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.conversationId = conversation.conversation_id;
@@ -496,6 +596,11 @@ ui.question.addEventListener("keydown", (event) => {
 });
 ui.newChat.addEventListener("click", newConversation);
 ui.refreshHistory.addEventListener("click", loadConversations);
+ui.historySearch.addEventListener("input", () => renderConversationHistory());
+ui.evidenceToggle.addEventListener("click", () => setEvidenceOpen(ui.evidencePanel.hidden));
+ui.evidenceClose.addEventListener("click", () => setEvidenceOpen(false));
+ui.mobileSidebarButton.addEventListener("click", () => setSidebarOpen(!ui.sidebar.classList.contains("open")));
+ui.sidebarScrim.addEventListener("click", () => setSidebarOpen(false));
 ui.logout.addEventListener("click", logout);
 ui.changePassword.addEventListener("click", () => openPasswordDialog(false));
 ui.passwordClose.addEventListener("click", closePasswordDialog);
@@ -508,7 +613,19 @@ document.querySelectorAll("[data-question]").forEach((button) => button.addEvent
   resizeTextarea();
   ui.question.focus();
 }));
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
+    event.preventDefault();
+    if (window.matchMedia("(max-width: 900px)").matches) setSidebarOpen(true);
+    ui.historySearch.focus();
+  }
+  if (event.key === "Escape") {
+    setSidebarOpen(false);
+    if (!ui.evidencePanel.hidden) setEvidenceOpen(false);
+  }
+});
 
 checkHealth();
 resizeTextarea();
+setConversationMode(false, "新对话");
 initializeAccount();

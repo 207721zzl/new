@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!.env.microservices.example
 .venv/
 .codex_tmp/
 models/

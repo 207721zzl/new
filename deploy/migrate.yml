@@ -1,0 +1,15 @@
+# Optional migration container. SOURCE_DATABASE_URL is supplied through the caller's environment.
+services:
+  import-legacy:
+    profiles: [migration]
+    image: evidencerag-knowledge:${RELEASE_TAG:-local}
+    environment:
+      SOURCE_DATABASE_URL: ${SOURCE_DATABASE_URL:-}
+      IDENTITY_DATABASE_URL: mysql+asyncmy://identity_app:${IDENTITY_DB_PASSWORD}@mysql:3306/identity_db?charset=utf8mb4
+      CHAT_DATABASE_URL: mysql+asyncmy://chat_app:${CHAT_DB_PASSWORD}@mysql:3306/chat_db?charset=utf8mb4
+      KNOWLEDGE_DATABASE_URL: mysql+asyncmy://knowledge_app:${KNOWLEDGE_DB_PASSWORD}@mysql:3306/knowledge_db?charset=utf8mb4
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      OBJECT_ENDPOINT: http://objects:9000
+      OBJECT_ACCESS_KEY: ${OBJECT_ACCESS_KEY}
+      OBJECT_SECRET_KEY: ${OBJECT_SECRET_KEY}
+    command: [python, -m, scripts.migrate_microservices]

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="登录 EvidenceRAG 企业知识问答平台" />
-    <title>登录 · EvidenceRAG</title>
+    <meta name="description" content="登录或申请 InsightAgent 企业知识问答账号" />
+    <title>账号入口 · InsightAgent</title>
     <link rel="stylesheet" href="/static/auth.css" />
     <script defer src="/static/auth.js"></script>
   </head>
@@ -12,20 +12,30 @@
     <main class="auth-shell">
       <section class="auth-story" aria-label="产品介绍">
         <a class="auth-brand" href="/">
-          <span>ER</span>
-          <strong>EvidenceRAG</strong>
+          <span aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6M12 3V1M7 7h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3Z"/><path d="M8 12h.01M16 12h.01M9 16h6"/></svg>
+          </span>
+          <span><strong>RAG 智能问答</strong><small>Powered by InsightAgent</small></span>
         </a>
+
         <div class="story-copy">
-          <p class="eyebrow">ENTERPRISE KNOWLEDGE</p>
-          <h1>企业知识，<br />只回答有依据的部分。</h1>
-          <p>独立账号空间、可追溯引用和受控知识库管理，让每次查询清晰、安全、互不干扰。</p>
+          <div class="story-badge">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 6v5c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            企业级知识助手
+          </div>
+          <h1>把企业知识<br />变成<span>清晰答案</span></h1>
+          <p>理解问题、检索文档、核对来源，一次对话获得可靠而可追溯的结果。</p>
         </div>
-        <div class="trust-row">
-          <span>会话隔离</span><span>角色权限</span><span>来源追溯</span>
+
+        <div class="trust-grid" aria-label="平台能力">
+          <article><span>01</span><strong>会话隔离</strong><small>每位员工拥有独立空间</small></article>
+          <article><span>02</span><strong>来源追溯</strong><small>答案可回查章节和页码</small></article>
+          <article><span>03</span><strong>角色权限</strong><small>问答与管理入口清晰分离</small></article>
         </div>
       </section>
 
       <section class="auth-panel">
+        <div class="panel-status"><span></span>安全账号入口</div>
         <div class="auth-card">
           <div class="tab-list" role="tablist" aria-label="账号入口">
             <button type="button" class="active" id="login-tab" role="tab" aria-selected="true">登录</button>
@@ -35,36 +45,56 @@
           <section id="login-panel" role="tabpanel">
             <div class="card-heading">
               <p class="eyebrow">WELCOME BACK</p>
-              <h2>登录工作台</h2>
-              <p>使用管理员已启用的账号继续。</p>
+              <h2>欢迎回来</h2>
+              <p>登录后继续你的企业知识问答。</p>
             </div>
             <form id="login-form">
-              <label>用户名<input id="login-username" name="username" autocomplete="username" maxlength="128" required autofocus /></label>
-              <label>密码<input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" required /></label>
-              <button type="submit" id="login-submit">登录</button>
+              <label>用户名
+                <span class="input-control">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                  <input id="login-username" name="username" autocomplete="username" maxlength="128" placeholder="请输入用户名" required autofocus />
+                </span>
+              </label>
+              <label>密码
+                <span class="input-control">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+                  <input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" placeholder="请输入密码" required />
+                </span>
+              </label>
+              <button type="submit" id="login-submit">登录工作台 <span aria-hidden="true">→</span></button>
             </form>
           </section>
 
           <section id="register-panel" role="tabpanel" hidden>
-            <div class="card-heading">
+            <div class="card-heading compact-heading">
               <p class="eyebrow">ACCOUNT REQUEST</p>
               <h2>申请员工账号</h2>
-              <p>提交后需由管理员审核启用。</p>
+              <p>提交信息后，由管理员审核并启用。</p>
             </div>
-            <form id="register-form">
-              <label>用户名<input id="register-username" autocomplete="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}" required /><small>3–64 位字母、数字、点、下划线或短横线</small></label>
-              <label>姓名<input id="register-display-name" autocomplete="name" maxlength="128" required /></label>
-              <label>密码<input id="register-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><small>至少 12 个字符</small></label>
-              <label>确认密码<input id="register-confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></label>
-              <button type="submit" id="register-submit">提交申请</button>
+            <form id="register-form" class="register-form">
+              <div class="register-grid">
+                <label>用户名
+                  <span class="input-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="register-username" autocomplete="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}" placeholder="3–64 位字符" required /></span>
+                  <small>支持字母、数字、点、下划线和短横线</small>
+                </label>
+                <label>姓名
+                  <span class="input-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21a8 8 0 0 1 16 0"/><circle cx="12" cy="7" r="4"/></svg><input id="register-display-name" autocomplete="name" maxlength="128" placeholder="请输入真实姓名" required /></span>
+                </label>
+                <label>密码
+                  <span class="input-control"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="register-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="至少 12 个字符" required /></span>
+                </label>
+                <label>确认密码
+                  <span class="input-control"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="register-confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="再次输入密码" required /></span>
+                </label>
+              </div>
+              <button type="submit" id="register-submit">提交账号申请 <span aria-hidden="true">→</span></button>
             </form>
           </section>
 
           <div class="auth-message" id="auth-message" role="status" hidden></div>
         </div>
-        <p class="support-note">账号待审核或被停用时，请联系系统管理员。</p>
+        <p class="support-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>账号待审核或被停用时，请联系系统管理员。</p>
       </section>
     </main>
   </body>
 </html>
-

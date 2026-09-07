@@ -145,6 +145,7 @@ function switchPanel(name) {
 }
 
 function formatBytes(value) {
+  if (value === null || value === undefined) return "暂不可用";
   const bytes = Number(value || 0);
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -167,18 +168,18 @@ function formatRate(value) {
 async function loadPilotOverview() {
   try {
     const data = await request("/api/v1/admin/pilot/overview");
-    ui.pilotRunSuccess.textContent = formatRate(data.runs.success_rate);
-    ui.pilotRunCount.textContent = `${data.runs.total} 次问答 · ${data.runs.failed} 次失败`;
-    ui.pilotRunP95.textContent = formatDuration(data.runs.p95_duration_ms);
-    ui.pilotActiveUsers.textContent = String(data.accounts.active_employees);
-    ui.pilotActiveSessions.textContent = `${data.accounts.active_sessions} 个有效登录会话`;
-    ui.pilotTokens.textContent = Number(data.tokens.total_tokens || 0).toLocaleString("zh-CN");
-    ui.pilotKnowledge.textContent = `${data.knowledge.documents} 篇文档 · ${data.knowledge.child_chunks} 个检索块`;
-    ui.pilotIndexing.textContent = `${data.indexing.completed} 成功 · ${data.indexing.failed} 失败 · ${data.indexing.stale} 卡住`;
-    ui.pilotFeedback.textContent = `${data.feedback.positive} 个赞 · ${data.feedback.negative} 个踩 · ${formatRate(data.feedback.positive_rate)}`;
+    ui.pilotRunSuccess.textContent = formatRate(data.runs?.success_rate);
+    ui.pilotRunCount.textContent = data.runs ? `${data.runs.total} 次问答 · ${data.runs.failed} 次失败` : "暂不可用";
+    ui.pilotRunP95.textContent = formatDuration(data.runs?.p95_duration_ms);
+    ui.pilotActiveUsers.textContent = data.accounts ? String(data.accounts.active_employees) : "暂不可用";
+    ui.pilotActiveSessions.textContent = data.accounts ? `${data.accounts.active_sessions} 个有效登录会话` : "暂不可用";
+    ui.pilotTokens.textContent = data.tokens ? Number(data.tokens.total_tokens || 0).toLocaleString("zh-CN") : "暂不可用";
+    ui.pilotKnowledge.textContent = data.knowledge ? `${data.knowledge.documents} 篇文档 · ${data.knowledge.child_chunks} 个检索块` : "暂不可用";
+    ui.pilotIndexing.textContent = data.indexing ? `${data.indexing.completed} 成功 · ${data.indexing.failed} 失败 · ${data.indexing.stale} 卡住` : "暂不可用";
+    ui.pilotFeedback.textContent = data.feedback ? `${data.feedback.positive} 个赞 · ${data.feedback.negative} 个踩 · ${formatRate(data.feedback.positive_rate)}` : "暂不可用";
     ui.pilotDisk.textContent = formatBytes(data.disk_free_bytes);
     ui.pilotModel.textContent = data.model_state === "ready" ? "已就绪" : data.model_state;
-    ui.pilotRuntime.textContent = `${data.runtime.requests_total} 次请求 · P95 ${formatDuration(data.runtime.p95_latency_ms)} · ${data.runtime.responses_5xx} 次 5xx`;
+    ui.pilotRuntime.textContent = data.runtime ? `${data.runtime.requests_total} 次请求 · P95 ${formatDuration(data.runtime.p95_latency_ms)} · ${data.runtime.responses_5xx} 次 5xx` : "暂不可用";
     ui.pilotWarnings.innerHTML = "";
     (data.warnings || []).forEach((warning) => {
       const item = document.createElement("li");
@@ -194,9 +195,9 @@ async function loadPilotOverview() {
 async function loadMaintenance() {
   try {
     const data = await request("/api/v1/admin/pilot/maintenance");
-    ui.cleanupConversations.textContent = String(data.conversations_to_delete);
-    ui.cleanupSessions.textContent = String(data.sessions_to_delete);
-    ui.cleanupAudits.textContent = String(data.audit_logs_to_delete);
+    ui.cleanupConversations.textContent = String(data.conversations_to_delete ?? "暂不可用");
+    ui.cleanupSessions.textContent = String(data.sessions_to_delete ?? "暂不可用");
+    ui.cleanupAudits.textContent = String(data.audit_logs_to_delete ?? "暂不可用");
     ui.cleanupConversationPolicy.textContent = `保留 ${data.conversation_retention_days} 天`;
     ui.cleanupSessionPolicy.textContent = `失效后保留 ${data.session_retention_days} 天`;
     ui.cleanupAuditPolicy.textContent = `保留 ${data.audit_retention_days} 天`;
@@ -206,16 +207,23 @@ async function loadMaintenance() {
   }
 }
 
+let cleanupOperationId = null;
 async function runMaintenanceCleanup() {
   if (!window.confirm("将永久删除超过保留期的数据，且不会删除当前有效会话。确认执行吗？")) return;
   ui.runCleanup.disabled = true;
+  cleanupOperationId ||= crypto.randomUUID();
   try {
     const data = await request("/api/v1/admin/pilot/maintenance/cleanup", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": cleanupOperationId },
       body: JSON.stringify({ confirmation: "PURGE_EXPIRED_PILOT_DATA" }),
     });
-    showToast(`清理完成：${data.conversations_to_delete} 个历史会话，${data.sessions_to_delete} 个失效登录会话，${data.audit_logs_to_delete} 条过期审计`);
+    if (data.status === "partial_failed") {
+      showToast("部分清理尚未完成，可以再次点击重试。已完成的部分不会重复执行。", true);
+    } else {
+      cleanupOperationId = null;
+      showToast(`清理完成：${data.conversations_to_delete} 个历史会话，${data.sessions_to_delete} 个失效登录会话，${data.audit_logs_to_delete} 条过期审计`);
+    }
     await Promise.all([loadMaintenance(), loadPilotOverview(), loadAuditLogs()]);
   } catch (error) {
     showToast(error.message, true);
@@ -431,7 +439,7 @@ async function loadDocuments() {
 }
 
 async function deleteDocument(document, button) {
-  if (!window.confirm(`确认从知识库删除“${document.title}”？此操作会同时移除检索向量。`)) return;
+  if (!window.confirm(`确认从知识库删除“${document.title}”？删除后将不再用于新的问答。`)) return;
   button.disabled = true;
   try {
     const result = await request(`/api/v1/admin/knowledge/documents/${encodeURIComponent(document.document_id)}`, { method: "DELETE" });
@@ -459,7 +467,7 @@ async function uploadKnowledge(event) {
   event.preventDefault();
   const files = Array.from(ui.files.files || []);
   if (!files.length) { showToast("请先选择知识文件", true); return; }
-  if (ui.recreate.checked && !window.confirm("重建会清空现有知识向量，确认继续吗？")) return;
+  if (ui.recreate.checked && !window.confirm("重建完成后将用本批文档替换当前知识库，确认继续吗？")) return;
   const data = new FormData();
   files.forEach((file) => data.append("files", file));
   data.append("recreate", String(ui.recreate.checked));

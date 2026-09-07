@@ -3,30 +3,42 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="EvidenceRAG 管理后台" />
-    <title>管理后台 · EvidenceRAG</title>
+    <meta name="description" content="InsightAgent 管理后台" />
+    <title>管理后台 · InsightAgent</title>
     <link rel="stylesheet" href="/static/admin.css" />
     <script defer src="/static/admin.js"></script>
   </head>
   <body>
     <div class="admin-shell">
       <aside class="admin-sidebar">
-        <a class="admin-brand" href="/admin"><span>ER</span><div><strong>EvidenceRAG</strong><small>管理控制台</small></div></a>
+        <a class="admin-brand" href="/admin">
+          <span class="admin-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M12 3V1M7 7h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3Z"/><path d="M8 12h.01M16 12h.01M9 16h6"/></svg></span>
+          <div><strong>RAG 管理后台</strong><small>Powered by InsightAgent</small></div>
+        </a>
+        <section class="admin-overview-card">
+          <div><span>管理控制台</span><small>ADMIN</small></div>
+          <strong>安全管理知识与账号</strong>
+          <p>所有敏感操作均会写入审计记录。</p>
+        </section>
         <nav aria-label="管理导航">
+          <p>工作区</p>
           <button type="button" class="active" data-panel="users"><span>01</span>账号管理</button>
           <button type="button" data-panel="knowledge"><span>02</span>知识库</button>
           <button type="button" data-panel="audit"><span>03</span>审计记录</button>
           <button type="button" data-panel="pilot"><span>04</span>试点运行</button>
         </nav>
         <div class="admin-side-foot">
-          <button type="button" id="admin-change-password">修改密码</button>
-          <button type="button" id="admin-logout">安全退出</button>
+          <a href="/">返回问答工作台</a>
+          <div class="admin-side-actions">
+            <button type="button" id="admin-change-password">修改密码</button>
+            <button type="button" id="admin-logout">安全退出</button>
+          </div>
         </div>
       </aside>
 
       <main class="admin-workspace">
         <header class="admin-topbar">
-          <div><p class="eyebrow">ADMINISTRATION</p><h1 id="page-title">账号管理</h1></div>
+          <div><p class="eyebrow">INSIGHTAGENT CONSOLE</p><h1 id="page-title">账号管理</h1></div>
           <div class="admin-identity"><span id="admin-avatar">管</span><div><strong id="admin-name">正在验证</strong><small>管理员</small></div></div>
         </header>
 
