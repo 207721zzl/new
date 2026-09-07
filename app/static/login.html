@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="登录 EvidenceRAG 企业知识问答平台" />
+    <title>登录 · EvidenceRAG</title>
+    <link rel="stylesheet" href="/static/auth.css" />
+    <script defer src="/static/auth.js"></script>
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-story" aria-label="产品介绍">
+        <a class="auth-brand" href="/">
+          <span>ER</span>
+          <strong>EvidenceRAG</strong>
+        </a>
+        <div class="story-copy">
+          <p class="eyebrow">ENTERPRISE KNOWLEDGE</p>
+          <h1>企业知识，<br />只回答有依据的部分。</h1>
+          <p>独立账号空间、可追溯引用和受控知识库管理，让每次查询清晰、安全、互不干扰。</p>
+        </div>
+        <div class="trust-row">
+          <span>会话隔离</span><span>角色权限</span><span>来源追溯</span>
+        </div>
+      </section>
+
+      <section class="auth-panel">
+        <div class="auth-card">
+          <div class="tab-list" role="tablist" aria-label="账号入口">
+            <button type="button" class="active" id="login-tab" role="tab" aria-selected="true">登录</button>
+            <button type="button" id="register-tab" role="tab" aria-selected="false">申请账号</button>
+          </div>
+
+          <section id="login-panel" role="tabpanel">
+            <div class="card-heading">
+              <p class="eyebrow">WELCOME BACK</p>
+              <h2>登录工作台</h2>
+              <p>使用管理员已启用的账号继续。</p>
+            </div>
+            <form id="login-form">
+              <label>用户名<input id="login-username" name="username" autocomplete="username" maxlength="128" required autofocus /></label>
+              <label>密码<input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" required /></label>
+              <button type="submit" id="login-submit">登录</button>
+            </form>
+          </section>
+
+          <section id="register-panel" role="tabpanel" hidden>
+            <div class="card-heading">
+              <p class="eyebrow">ACCOUNT REQUEST</p>
+              <h2>申请员工账号</h2>
+              <p>提交后需由管理员审核启用。</p>
+            </div>
+            <form id="register-form">
+              <label>用户名<input id="register-username" autocomplete="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}" required /><small>3–64 位字母、数字、点、下划线或短横线</small></label>
+              <label>姓名<input id="register-display-name" autocomplete="name" maxlength="128" required /></label>
+              <label>密码<input id="register-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><small>至少 12 个字符</small></label>
+              <label>确认密码<input id="register-confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></label>
+              <button type="submit" id="register-submit">提交申请</button>
+            </form>
+          </section>
+
+          <div class="auth-message" id="auth-message" role="status" hidden></div>
+        </div>
+        <p class="support-note">账号待审核或被停用时，请联系系统管理员。</p>
+      </section>
+    </main>
+  </body>
+</html>
+

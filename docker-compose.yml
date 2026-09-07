@@ -1,0 +1,138 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENVIRONMENT: production
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-evidence_rag}:${MYSQL_PASSWORD:-evidence_rag}@mysql:3306/${MYSQL_DATABASE:-evidence_rag}?charset=utf8mb4
+      DATABASE_READ_URL: mysql+asyncmy://${MYSQL_READ_USER:-evidence_reader}:${MYSQL_READ_PASSWORD:-evidence_reader}@mysql:3306/${MYSQL_DATABASE:-evidence_rag}?charset=utf8mb4
+      PILOT_RECONCILE_INTERRUPTED_TASKS: "true"
+      MILVUS_URI: http://standalone:19530
+      EMBEDDING_MODEL: /models/bge-m3
+      RERANKER_MODEL: /models/bge-reranker-v2-m3
+    gpus: all
+    command: >-
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    volumes:
+      - ${BGE_M3_HOST_PATH:-./models/bge-m3}:/models/bge-m3:ro
+      - ${RERANKER_HOST_PATH:-./models/bge-reranker-large}:/models/bge-reranker-v2-m3:ro
+      - ./app/static:/app/app/static:ro
+      - ./data/knowledge/uploads:/app/data/knowledge/uploads
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      standalone:
+        condition: service_healthy
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-evidence_rag}
+      MYSQL_USER: ${MYSQL_USER:-evidence_rag}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-evidence_rag}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-evidence_rag_root}
+      MYSQL_READ_USER: ${MYSQL_READ_USER:-evidence_reader}
+      MYSQL_READ_PASSWORD: ${MYSQL_READ_PASSWORD:-evidence_reader}
+    ports:
+      - "127.0.0.1:${MYSQL_HOST_PORT:-13306}:3306"
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/mysql:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.25
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
+    command: >-
+      etcd -advertise-client-urls=http://etcd:2379
+      -listen-client-urls=http://0.0.0.0:2379
+      --data-dir=/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "127.0.0.1:${MINIO_API_HOST_PORT:-19000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-19001}:9001"
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  standalone:
+    image: milvusdb/milvus:v3.0-beta
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      MINIO_REGION: us-east-1
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "127.0.0.1:${MILVUS_HOST_PORT:-19530}:19530"
+      - "127.0.0.1:${MILVUS_HEALTH_HOST_PORT:-19091}:9091"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="EvidenceRAG 管理后台" />
+    <title>管理后台 · EvidenceRAG</title>
+    <link rel="stylesheet" href="/static/admin.css" />
+    <script defer src="/static/admin.js"></script>
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <a class="admin-brand" href="/admin"><span>ER</span><div><strong>EvidenceRAG</strong><small>管理控制台</small></div></a>
+        <nav aria-label="管理导航">
+          <button type="button" class="active" data-panel="users"><span>01</span>账号管理</button>
+          <button type="button" data-panel="knowledge"><span>02</span>知识库</button>
+          <button type="button" data-panel="audit"><span>03</span>审计记录</button>
+          <button type="button" data-panel="pilot"><span>04</span>试点运行</button>
+        </nav>
+        <div class="admin-side-foot">
+          <button type="button" id="admin-change-password">修改密码</button>
+          <button type="button" id="admin-logout">安全退出</button>
+        </div>
+      </aside>
+
+      <main class="admin-workspace">
+        <header class="admin-topbar">
+          <div><p class="eyebrow">ADMINISTRATION</p><h1 id="page-title">账号管理</h1></div>
+          <div class="admin-identity"><span id="admin-avatar">管</span><div><strong id="admin-name">正在验证</strong><small>管理员</small></div></div>
+        </header>
+
+        <section class="admin-panel" id="panel-users">
+          <div class="stat-grid">
+            <article><small>账号总数</small><strong id="stat-total">—</strong><span>不含系统保留账号</span></article>
+            <article><small>待审核</small><strong id="stat-pending">—</strong><span>等待管理员启用</span></article>
+            <article><small>已启用</small><strong id="stat-active">—</strong><span>当前可登录账号</span></article>
+            <article><small>已停用</small><strong id="stat-disabled">—</strong><span>历史数据仍保留</span></article>
+          </div>
+
+          <article class="surface">
+            <div class="surface-heading">
+              <div><h2>员工与管理员</h2><p>审核注册申请、调整角色或停用账号。</p></div>
+              <button type="button" class="primary" id="open-create-user">新建账号</button>
+            </div>
+            <div class="toolbar">
+              <input id="user-search" type="search" maxlength="128" placeholder="搜索用户名或姓名" />
+              <select id="user-status-filter"><option value="">全部状态</option><option value="pending">待审核</option><option value="active">已启用</option><option value="disabled">已停用</option></select>
+              <button type="button" id="refresh-users">刷新</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th><th>安全状态</th><th>操作</th></tr></thead>
+                <tbody id="user-rows"><tr><td colspan="6" class="empty-cell">正在加载账号…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="admin-panel" id="panel-knowledge" hidden>
+          <article class="surface upload-surface">
+            <div class="surface-heading"><div><h2>导入知识文档</h2><p>支持 PDF、Word、Markdown、HTML、TXT、Excel 和 JSON。</p></div></div>
+            <form id="admin-upload-form" class="upload-form">
+              <label class="file-picker" for="admin-files"><input id="admin-files" type="file" multiple accept=".json,.pdf,.docx,.md,.markdown,.html,.htm,.txt,.xlsx,.xlsm,.xls" /><strong id="admin-file-label">选择一个或多个文件</strong><span>单次上传后自动解析、切块和索引</span></label>
+              <label class="check-control"><input id="admin-recreate" type="checkbox" /><span>清空旧知识后重建（谨慎使用）</span></label>
+              <button type="submit" class="primary" id="admin-upload-submit">开始导入</button>
+            </form>
+            <div class="operation-status" id="admin-upload-status" hidden></div>
+          </article>
+
+          <article class="surface">
+            <div class="surface-heading"><div><h2>已入库文档</h2><p>删除会同步清理 MySQL 原文、父子块和 Milvus 向量。</p></div><button type="button" id="refresh-documents">刷新</button></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>文档</th><th>类型</th><th>版本</th><th>索引规模</th><th>更新时间</th><th>操作</th></tr></thead>
+                <tbody id="document-rows"><tr><td colspan="6" class="empty-cell">正在加载文档…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="admin-panel" id="panel-audit" hidden>
+          <article class="surface">
+            <div class="surface-heading"><div><h2>敏感操作审计</h2><p>记录账号与知识库管理操作，不展示员工聊天正文。</p></div><button type="button" id="refresh-audit">刷新</button></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>时间</th><th>操作者</th><th>操作</th><th>目标</th><th>结果</th></tr></thead>
+                <tbody id="audit-rows"><tr><td colspan="5" class="empty-cell">正在加载记录…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="admin-panel" id="panel-pilot" hidden>
+          <div class="stat-grid pilot-stat-grid">
+            <article><small>问答成功率（24h）</small><strong id="pilot-run-success">—</strong><span id="pilot-run-count">等待统计</span></article>
+            <article><small>问答 P95</small><strong id="pilot-run-p95">—</strong><span>从开始执行到完成</span></article>
+            <article><small>活跃员工 / 会话</small><strong id="pilot-active-users">—</strong><span id="pilot-active-sessions">等待统计</span></article>
+            <article><small>Token 用量（24h）</small><strong id="pilot-tokens">—</strong><span>问题改写与答案生成</span></article>
+          </div>
+
+          <div class="pilot-grid">
+            <article class="surface">
+              <div class="surface-heading"><div><h2>运行概况</h2><p>仅统计数量、状态与耗时，不采集问题正文。</p></div><button type="button" id="refresh-pilot">刷新</button></div>
+              <dl class="metric-list">
+                <div><dt>知识库</dt><dd id="pilot-knowledge">—</dd></div>
+                <div><dt>入库任务</dt><dd id="pilot-indexing">—</dd></div>
+                <div><dt>用户反馈</dt><dd id="pilot-feedback">—</dd></div>
+                <div><dt>磁盘可用</dt><dd id="pilot-disk">—</dd></div>
+                <div><dt>模型状态</dt><dd id="pilot-model">—</dd></div>
+                <div><dt>API 运行</dt><dd id="pilot-runtime">—</dd></div>
+              </dl>
+            </article>
+
+            <article class="surface warning-surface">
+              <div class="surface-heading"><div><h2>试点提示</h2><p>扩大试点前应逐项确认。</p></div></div>
+              <ul class="warning-list" id="pilot-warnings"><li>正在生成检查结果…</li></ul>
+            </article>
+          </div>
+
+          <article class="surface">
+            <div class="surface-heading"><div><h2>数据保留期维护</h2><p>只清理超过配置保留期的会话、失效登录会话与管理审计；执行动作会留下新的审计记录。</p></div><button type="button" id="refresh-maintenance">重新预览</button></div>
+            <div class="retention-grid">
+              <div><small>历史会话</small><strong id="cleanup-conversations">—</strong><span id="cleanup-conversation-policy">—</span></div>
+              <div><small>失效登录会话</small><strong id="cleanup-sessions">—</strong><span id="cleanup-session-policy">—</span></div>
+              <div><small>过期审计记录</small><strong id="cleanup-audits">—</strong><span id="cleanup-audit-policy">—</span></div>
+              <button type="button" class="danger-button" id="run-cleanup">执行到期数据清理</button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="create-user-dialog">
+      <form id="create-user-form">
+        <div class="dialog-heading"><div><p class="eyebrow">NEW ACCOUNT</p><h2>新建账号</h2></div><button type="button" data-close-dialog="create-user-dialog">×</button></div>
+        <div class="form-grid">
+          <label>用户名<input id="create-username" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}" autocomplete="off" required /></label>
+          <label>显示姓名<input id="create-display-name" maxlength="128" autocomplete="off" required /></label>
+          <label>角色<select id="create-role"><option value="employee">普通员工</option><option value="admin">管理员</option></select></label>
+          <label>初始状态<select id="create-status"><option value="active">已启用</option><option value="pending">待审核</option><option value="disabled">已停用</option></select></label>
+          <label class="span-two">临时密码<input id="create-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+          <label class="check-control span-two"><input id="create-must-change" type="checkbox" checked /><span>首次登录必须修改密码</span></label>
+        </div>
+        <button type="submit" class="primary" id="create-user-submit">创建账号</button>
+      </form>
+    </dialog>
+
+    <dialog id="reset-password-dialog">
+      <form id="reset-password-form">
+        <div class="dialog-heading"><div><p class="eyebrow">RESET PASSWORD</p><h2>重置密码</h2></div><button type="button" data-close-dialog="reset-password-dialog">×</button></div>
+        <p class="dialog-copy">正在为 <strong id="reset-user-label"></strong> 设置临时密码。该用户现有会话会立即失效，重新登录后必须改密。</p>
+        <label>临时密码<input id="reset-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <label>确认临时密码<input id="reset-password-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <button type="submit" class="primary" id="reset-password-submit">确认重置</button>
+      </form>
+    </dialog>
+
+    <dialog id="admin-password-dialog">
+      <form id="admin-password-form">
+        <div class="dialog-heading"><div><p class="eyebrow">ACCOUNT SECURITY</p><h2>修改登录密码</h2></div><button type="button" id="admin-password-close">×</button></div>
+        <p class="dialog-copy" id="admin-password-note">新密码至少 12 个字符，保存后需要重新登录。</p>
+        <label>当前密码<input id="admin-current-password" type="password" autocomplete="current-password" required /></label>
+        <label>新密码<input id="admin-new-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <label>确认新密码<input id="admin-confirm-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <button type="submit" class="primary" id="admin-password-submit">保存新密码</button>
+      </form>
+    </dialog>
+
+    <div class="toast" id="admin-toast" role="status" hidden></div>
+  </body>
+</html>

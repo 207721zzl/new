@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="EvidenceRAG：可追溯的企业文档知识问答" />
+    <title>EvidenceRAG · 文档知识问答</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="EvidenceRAG 首页">
+          <span class="brand-mark">ER</span>
+          <span>
+            <strong>EvidenceRAG</strong>
+            <small>文档知识问答</small>
+          </span>
+        </a>
+
+        <button class="new-chat" type="button" id="new-chat-button">
+          <span>＋</span> 新建会话
+        </button>
+
+        <section class="side-section suggestions-section">
+          <p class="section-label">试试这样问</p>
+          <div class="suggestions">
+            <button type="button" data-question="请概括知识库里最重要的内容">概括核心内容</button>
+            <button type="button" data-question="文档中有哪些关键流程和注意事项？">查找流程与注意事项</button>
+            <button type="button" data-question="不同文档对同一问题的说明是否一致？">跨文档对比</button>
+          </div>
+        </section>
+
+        <section class="history-section" aria-labelledby="history-heading">
+          <div class="history-heading">
+            <p class="section-label" id="history-heading">我的会话</p>
+            <button type="button" id="refresh-history" aria-label="刷新会话">↻</button>
+          </div>
+          <div class="history-list" id="history-list">
+            <p class="history-empty">正在加载…</p>
+          </div>
+        </section>
+
+        <section class="account-card">
+          <div class="account-avatar" id="account-avatar">用</div>
+          <div class="account-copy">
+            <strong id="account-name">正在验证身份</strong>
+            <small id="account-role">—</small>
+          </div>
+          <button type="button" class="account-menu" id="change-password-button" title="修改密码">密码</button>
+          <button type="button" class="logout-button" id="logout-button">退出</button>
+        </section>
+
+        <div class="sidebar-footer">
+          <span class="status-dot" id="health-dot"></span>
+          <span id="health-label">正在检查服务</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">EVIDENCE-GROUNDED ANSWERS</p>
+            <h1>让每个答案都有出处</h1>
+          </div>
+          <div class="run-badge" id="run-badge" hidden>
+            <span></span>
+            <strong id="run-status">处理中</strong>
+          </div>
+        </header>
+
+        <div class="content-grid">
+          <section class="conversation-panel">
+            <div class="conversation" id="conversation" aria-live="polite">
+              <article class="message assistant-message intro-message">
+                <div class="avatar">ER</div>
+                <div class="message-body">
+                  <p class="message-label">EvidenceRAG</p>
+                  <h2>从你的文档里找到可靠答案</h2>
+                  <p>我会先理解问题，再进行混合检索和重排，最后只根据命中的父块生成回答，并附上章节和页码。</p>
+                </div>
+              </article>
+            </div>
+
+            <form class="question-form" id="question-form">
+              <label for="question-input">向知识库提问</label>
+              <div class="input-row">
+                <textarea
+                  id="question-input"
+                  name="question"
+                  rows="1"
+                  maxlength="2000"
+                  placeholder="例如：文档里对数据保留期限是怎么规定的？"
+                  required
+                ></textarea>
+                <button type="submit" id="submit-button" aria-label="发送问题">发送</button>
+              </div>
+              <div class="form-foot">
+                <span>Enter 发送 · Shift + Enter 换行</span>
+                <label>召回 <select id="top-k"><option>3</option><option selected>5</option><option>8</option><option>10</option></select> 条</label>
+              </div>
+            </form>
+          </section>
+
+          <aside class="evidence-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">RAG TRACE</p>
+                <h2>检索与证据</h2>
+              </div>
+              <span id="evidence-count">0 条</span>
+            </div>
+
+            <section class="trace-card">
+              <ol class="timeline" id="timeline">
+                <li class="muted"><span>1</span><p>提交问题后，这里会显示查询改写、混合检索、重排和生成进度。</p></li>
+              </ol>
+            </section>
+
+            <section class="query-card" id="query-card" hidden>
+              <p class="section-label">检索查询</p>
+              <div><small>独立问题</small><p id="standalone-question"></p></div>
+              <div><small>改写结果</small><p id="rewritten-query"></p></div>
+            </section>
+
+            <section class="citation-section" id="citation-section" hidden>
+              <p class="section-label">引用证据</p>
+              <div class="citation-list" id="citation-list"></div>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </div>
+    <dialog class="account-dialog" id="password-dialog">
+      <form method="dialog" id="password-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">ACCOUNT SECURITY</p>
+            <h2>修改登录密码</h2>
+          </div>
+          <button type="button" class="dialog-close" id="password-close" aria-label="关闭">×</button>
+        </div>
+        <p class="dialog-note" id="password-note">新密码至少 12 个字符。修改后需要重新登录。</p>
+        <label>当前密码<input type="password" id="current-password" autocomplete="current-password" required /></label>
+        <label>新密码<input type="password" id="new-password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <label>确认新密码<input type="password" id="confirm-password" minlength="12" maxlength="128" autocomplete="new-password" required /></label>
+        <button type="submit" class="dialog-submit" id="password-submit">保存新密码</button>
+      </form>
+    </dialog>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </body>
+</html>
