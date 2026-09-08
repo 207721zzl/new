@@ -10,7 +10,12 @@ def main():
     values={key:secrets.token_urlsafe(32) for key in ["INTERNAL_SERVICE_TOKEN","MICRO_MYSQL_ROOT_PASSWORD",
         "IDENTITY_DB_PASSWORD","CHAT_DB_PASSWORD","KNOWLEDGE_DB_PASSWORD","OBJECT_SECRET_KEY",
         "IDENTITY_MIGRATION_PASSWORD","CHAT_MIGRATION_PASSWORD","KNOWLEDGE_MIGRATION_PASSWORD"]}
-    values.update({"OBJECT_ACCESS_KEY":"evidence_uploads", "MICRO_API_PORT":"18000", "MICRO_MYSQL_PORT":"23306"})
+    values.update({
+        "OBJECT_ACCESS_KEY": "evidence_uploads",
+        "MICRO_API_PORT": "18000",
+        "MICRO_MYSQL_PORT": "23306",
+        "MICRO_BIND_HOST": "127.0.0.1",
+    })
     missing={key:value for key,value in values.items() if not existing.get(key)}
     if missing:
         with path.open('a',encoding='utf-8') as stream:

@@ -30,6 +30,30 @@ docker compose --env-file .env --env-file .env.microservices -f deploy/compose.y
 
 初始化脚本只在配置不存在时生成随机密码，不输出密码、不覆盖现有配置。`.env.microservices` 已加入忽略规则。先在本机访问 `http://127.0.0.1:18000`；新旧系统拥有不同的数据，在迁移完成前不要切换正式访问入口。
 
+局域网试运行并要求项目持久资源位于 D 盘时，使用：
+
+```powershell
+./scripts/start_lan_microservices.ps1 -Build
+```
+
+该入口会把当前进程的临时目录切换到项目下的 `volumes/microservices-runtime/tmp`，并在启动前检查项目、模型和 Docker Desktop 的 WSL 数据盘都位于 D 盘。Gateway 绑定 `0.0.0.0:${MICRO_API_PORT:-18000}`，数据库、Redis、MinIO、Milvus 仍只在 Compose 内部网络可见。Windows 防火墙应仅允许 TCP 18000 的 `LocalSubnet` 入站访问；不要把 MySQL、Redis、MinIO 或 Milvus 端口开放到局域网。
+
+临时公网 HTTPS 试运行使用 Cloudflare Quick Tunnel：
+
+```powershell
+./scripts/start_public_microservices.ps1 -Build
+Get-Content ./volumes/public-tunnel/public-url.txt
+```
+
+公网入口在独立的 `deploy/compose.public.yml` 中启用，只把 Gateway 连接到隧道；MySQL、Redis、MinIO、Milvus 和模型服务没有公网端口。隧道与 Gateway 共享容器网络空间，使 Uvicorn 只接受来自本机代理的原始 HTTPS 协议，并为公网登录签发 `Secure` Cookie。隧道镜像和运行状态随 Docker Desktop 数据盘保存在 D 盘，当前公网地址写入 `volumes/public-tunnel/public-url.txt`。
+
+Quick Tunnel 不需要域名或 Cloudflare 账号，适合当前验收，但它没有可用性保证，容器重新创建后地址会变化。固定域名和长期运行应改用预先创建的命名 Tunnel，并把凭据作为本机机密提供；不要提交到仓库。停止公网入口时执行：
+
+```powershell
+docker compose --profile public --env-file .env --env-file .env.microservices `
+  -f deploy/compose.yml -f deploy/compose.public.yml stop public-tunnel
+```
+
 Compose 中包含三个一次性 Alembic 迁移任务、对象桶初始化任务、两个 Worker 和两个派发器。迁移先于领域 API 启动，API 不在启动时执行数据库迁移或把所有活动任务标记失败。
 
 新装环境创建首个管理员：
@@ -91,8 +115,8 @@ docker compose --env-file .env --env-file .env.microservices -f deploy/compose.y
 
 当前提供统一请求 ID、run/job 日志关联、Redis 汇总入口指标和领域统计；尚未接入完整 OpenTelemetry 跨服务跨度。Compose 的 MySQL 账号仅获得本领域数据库的权限，但迁移与运行当前使用同一领域账号，后续可进一步分离 DDL 与 DML 账号。
 
-## 当前环境阻塞
+## 当前环境状态
 
-2026-09-07 本机 Docker Desktop 启动日志报告 `initializing Inference manager` 时无法访问 `Docker/run/dockerInference`，Docker 引擎查询超时。当前进程也无法启动 Windows 的 `com.docker.service`。未进行恢复出厂设置、删除 Docker 数据目录或覆盖原数据库。
+2026-09-08 已在本机完成独立微服务 Compose 部署。Gateway、身份、问答、知识库、GPU 推理、两个 Worker、两个派发器、MySQL、Redis、MinIO 和 Milvus 均已启动；BGE-M3 与 Reranker 从 D 盘只读挂载并在 CUDA 上加载。示例文档完成真实对象存储、解析、向量化和索引，员工账号完成检索、异步问答和引用生成，管理员端收到真实反馈和 Token 统计。
 
-在修复 Docker 环境前，容器构建、真实数据库迁移、真实 GPU/队列联调和正式流量切换尚未完成。代码测试及 Compose 静态验证的结果与实际部署状态必须分开判断。
+局域网入口与临时公网 HTTPS 入口均已验证。旧系统数据仍保留在原存储中，尚未执行历史数据迁移、容量压测、恢复演练或固定域名切换，因此当前状态属于可访问的单机验收部署，不代表多机高可用生产环境。

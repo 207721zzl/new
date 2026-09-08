@@ -223,6 +223,7 @@ services:
       target: base
     image: evidencerag-chat-worker:${RELEASE_TAG:-local}
     environment:
+      PYTHONPATH: /app
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
       MODEL_PRELOAD_ENABLED: 'false'
       MODEL_WARMUP_ENABLED: 'false'
@@ -259,6 +260,7 @@ services:
       target: base
     image: evidencerag-chat-dispatcher:${RELEASE_TAG:-local}
     environment:
+      PYTHONPATH: /app
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
       MODEL_PRELOAD_ENABLED: 'false'
       MODEL_WARMUP_ENABLED: 'false'
@@ -290,6 +292,7 @@ services:
       target: ingestion
     image: evidencerag-ingestion-worker:${RELEASE_TAG:-local}
     environment:
+      PYTHONPATH: /app
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
       MODEL_PRELOAD_ENABLED: 'false'
       MODEL_WARMUP_ENABLED: 'false'
@@ -329,6 +332,7 @@ services:
       target: base
     image: evidencerag-knowledge-dispatcher:${RELEASE_TAG:-local}
     environment:
+      PYTHONPATH: /app
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Run scripts/init_microservices.py}
       MODEL_PRELOAD_ENABLED: 'false'
       MODEL_WARMUP_ENABLED: 'false'
@@ -390,7 +394,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-    - 127.0.0.1:${MICRO_API_PORT:-18000}:8000
+    - ${MICRO_BIND_HOST:-127.0.0.1}:${MICRO_API_PORT:-18000}:8000
     depends_on:
       limits:
         condition: service_healthy
