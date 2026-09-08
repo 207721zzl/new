@@ -227,7 +227,7 @@
       <form id="create-user-form">
         <div class="dialog-heading"><div><p class="eyebrow">NEW ACCOUNT</p><h2>新建账号</h2></div><button type="button" data-close-dialog="create-user-dialog">×</button></div>
         <div class="form-grid">
-          <label>用户名<input id="create-username" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}" autocomplete="off" required /></label>
+          <label>用户名<input id="create-username" minlength="3" maxlength="64" placeholder="支持中文、字母和数字" autocomplete="off" required /></label>
           <label>显示姓名<input id="create-display-name" maxlength="128" autocomplete="off" required /></label>
           <label>角色<select id="create-role"><option value="employee">普通员工</option><option value="admin">管理员</option></select></label>
           <label>初始状态<select id="create-status"><option value="active">已启用</option><option value="pending">待审核</option><option value="disabled">已停用</option></select></label>

@@ -130,6 +130,23 @@ def test_register_creates_pending_account_without_setting_login_cookie() -> None
     assert service.registered["password"] == "correct horse battery staple"
 
 
+def test_register_accepts_a_chinese_username() -> None:
+    service = FakeAuthService()
+    with TestClient(_build_app(service)) as client:
+        response = client.post(
+            "/api/v1/auth/register",
+            headers={"Origin": "http://testserver"},
+            json={
+                "username": "大臭蛋",
+                "display_name": "小帆",
+                "password": "correct horse battery staple",
+            },
+        )
+
+    assert response.status_code == 201
+    assert service.registered["username"] == "大臭蛋"
+
+
 def test_client_config_exposes_only_frontend_auth_settings() -> None:
     service = FakeAuthService()
     settings = Settings(_env_file=None, auth_registration_enabled=False)

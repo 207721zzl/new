@@ -151,6 +151,30 @@ function showToast(message, error = false) {
   showToast.timer = window.setTimeout(() => { ui.toast.hidden = true; }, 3800);
 }
 
+function usernameIsValid(value) {
+  const normalized = String(value || "").normalize("NFKC").trim();
+  const characters = Array.from(normalized);
+  return characters.length >= 3
+    && characters.length <= 64
+    && /^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(normalized);
+}
+
+function responseErrorMessage(payload, status) {
+  if (payload?.error?.message) return payload.error.message;
+  const issue = payload?.detail?.[0];
+  if (!issue) return `请求失败（${status}）`;
+  const field = Array.isArray(issue.loc) ? issue.loc.at(-1) : null;
+  const labels = {
+    username: "用户名",
+    display_name: "显示姓名",
+    password: "密码",
+    temporary_password: "临时密码",
+  };
+  const message = String(issue.msg || "").replace(/^Value error,\s*/i, "").trim();
+  if (message && message !== issue.msg) return message;
+  return `${labels[field] || "提交内容"}格式不正确，请检查后重试。`;
+}
+
 async function request(url, options = {}) {
   const method = String(options.method || "GET").toUpperCase();
   const headers = new Headers(options.headers || {});
@@ -166,7 +190,7 @@ async function request(url, options = {}) {
     if (response.status === 401) window.location.replace("/login?next=%2Fadmin");
     if (code === "password_change_required") openPasswordDialog(true);
     if (code === "permission_denied") window.location.replace("/");
-    const error = new Error(payload?.error?.message || payload?.detail?.[0]?.msg || `请求失败（${response.status}）`);
+    const error = new Error(responseErrorMessage(payload, response.status));
     error.status = response.status;
     error.code = code;
     throw error;
@@ -403,13 +427,18 @@ async function saveUser(user, role, status, button) {
 
 async function createUser(event) {
   event.preventDefault();
+  const username = document.querySelector("#create-username").value;
+  if (!usernameIsValid(username)) {
+    showToast("用户名需为 3–64 位，首位使用中文、字母或数字。", true);
+    return;
+  }
   ui.createUserSubmit.disabled = true;
   try {
     await request("/api/v1/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        username: document.querySelector("#create-username").value,
+        username,
         display_name: document.querySelector("#create-display-name").value,
         password: document.querySelector("#create-password").value,
         role: document.querySelector("#create-role").value,

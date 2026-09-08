@@ -1,7 +1,6 @@
 """用户名、密码校验与 Argon2id 密码哈希。"""
 
 import hashlib
-import re
 import secrets
 import unicodedata
 
@@ -11,7 +10,7 @@ from argon2 import PasswordHasher, Type, exceptions as argon2_exceptions
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 128
 TOKEN_ENTROPY_BYTES = 32
-USERNAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
+USERNAME_SEPARATORS = frozenset("._-")
 
 # argon2-cffi 23.1 将 InvalidHash 重命名为 InvalidHashError，并保留了别名；
 # 兼容仍在使用旧名称的现有运行环境。
@@ -40,10 +39,23 @@ def normalize_username(username: str) -> str:
 def validate_username(username: str) -> str:
     """校验并返回规范化登录名。"""
     normalized = normalize_username(username)
-    if not USERNAME_PATTERN.fullmatch(normalized):
+    characters = list(normalized)
+    starts_with_name_character = bool(characters) and unicodedata.category(
+        characters[0]
+    )[0] in {"L", "N"}
+    contains_only_supported_characters = all(
+        unicodedata.category(character)[0] in {"L", "N"}
+        or character in USERNAME_SEPARATORS
+        for character in characters
+    )
+    if not (
+        3 <= len(characters) <= 64
+        and starts_with_name_character
+        and contains_only_supported_characters
+    ):
         raise ValueError(
-            "username must be 3-64 characters and contain only lowercase "
-            "letters, digits, dots, underscores, or hyphens"
+            "用户名需为 3–64 个字符，首位使用中文、字母或数字，"
+            "其余可使用点、下划线和短横线。"
         )
     return normalized
 

@@ -22,6 +22,25 @@ function showMessage(message, error = false) {
   ui.message.hidden = false;
 }
 
+function usernameIsValid(value) {
+  const normalized = String(value || "").normalize("NFKC").trim();
+  const characters = Array.from(normalized);
+  return characters.length >= 3
+    && characters.length <= 64
+    && /^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(normalized);
+}
+
+function responseErrorMessage(payload, status) {
+  if (payload?.error?.message) return payload.error.message;
+  const issue = payload?.detail?.[0];
+  if (!issue) return `请求失败（${status}）`;
+  const field = Array.isArray(issue.loc) ? issue.loc.at(-1) : null;
+  const labels = { username: "用户名", display_name: "姓名", password: "密码" };
+  const message = String(issue.msg || "").replace(/^Value error,\s*/i, "").trim();
+  if (message && message !== issue.msg) return message;
+  return `${labels[field] || "提交内容"}格式不正确，请检查后重试。`;
+}
+
 function selectTab(name) {
   const isLogin = name === "login";
   ui.loginTab.classList.toggle("active", isLogin);
@@ -39,7 +58,7 @@ async function apiRequest(url, options = {}) {
   let payload = null;
   try { payload = await response.json(); } catch (_) { /* 空响应 */ }
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.detail?.[0]?.msg || `请求失败（${response.status}）`;
+    const message = responseErrorMessage(payload, response.status);
     throw new Error(message);
   }
   return payload;
@@ -82,6 +101,10 @@ async function submitLogin(event) {
 
 async function submitRegistration(event) {
   event.preventDefault();
+  if (!usernameIsValid(ui.registerUsername.value)) {
+    showMessage("用户名需为 3–64 位，首位使用中文、字母或数字，其余可使用点、下划线和短横线。", true);
+    return;
+  }
   if (ui.registerPassword.value !== ui.registerConfirmPassword.value) {
     showMessage("两次输入的密码不一致。", true);
     return;

@@ -20,11 +20,12 @@ from app.auth.security import (
 def test_username_is_nfkc_normalized_and_case_insensitive() -> None:
     assert normalize_username("  Ａdmin.User  ") == "admin.user"
     assert validate_username("Admin.User") == "admin.user"
+    assert validate_username("  大臭蛋  ") == "大臭蛋"
 
 
 @pytest.mark.parametrize(
     "username",
-    ["ab", "has space", "slash/name", "-leading-hyphen", "用户名"],
+    ["ab", "has space", "slash/name", "-leading-hyphen", "用户🙂"],
 )
 def test_invalid_username_is_rejected(username: str) -> None:
     with pytest.raises(ValueError):
