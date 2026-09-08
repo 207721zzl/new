@@ -23,6 +23,7 @@ from app.logging_config import (
     run_id_context,
 )
 from services.chat.conversations import ConversationStore, FeedbackStore
+from services.chat.admin_router import router as admin_router
 from services.chat.operations import router as operations_router
 from services.chat.qa import KnowledgeQAService, get_knowledge_qa_service
 from services.chat.workflow import RAGWorkflow, get_rag_workflow
@@ -50,6 +51,7 @@ from packages.platform.application import create_app
 settings = get_settings()
 app = create_app("chat")
 app.include_router(operations_router)
+app.include_router(admin_router)
 
 def get_workflow() -> RAGWorkflow:
     return get_rag_workflow()

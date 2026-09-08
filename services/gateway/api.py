@@ -55,6 +55,8 @@ async def admin(context=Depends(get_optional_auth_context)):
 def target_for(path):
     if path.startswith(("/api/v1/auth/", "/api/v1/admin/users", "/api/v1/admin/audit-logs")):
         return "identity"
+    if path.startswith(("/api/v1/admin/feedback", "/api/v1/admin/token-usage")):
+        return "chat"
     if path.startswith(("/api/v1/knowledge/answers", "/api/v1/retrieval/", "/api/v1/answers",
                         "/api/v1/runs", "/api/v1/conversations", "/api/v1/feedback")):
         return "chat"

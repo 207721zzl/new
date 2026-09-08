@@ -1,12 +1,16 @@
 """管理员专用账号、审计与知识库管理 API。"""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.schemas import (
     AdminAuditList,
     AdminAuditSummary,
+    AdminFeedbackList,
     AdminPasswordResetRequest,
+    AdminTokenUsageReport,
     AdminUserCreate,
     AdminUserList,
     AdminUserResult,
@@ -14,12 +18,14 @@ from app.admin.schemas import (
     AdminUserUpdate,
     KnowledgeDocumentDeleted,
 )
+from app.admin.monitoring import create_admin_monitoring_store
 from app.admin.service import AdminService
 from app.auth.dependencies import require_admin, require_admin_csrf
 from app.auth.schemas import UserRole, UserStatus
 from app.auth.service import AuthContext
 from app.db.session import get_admin_session
 from app.logging_config import request_id_context
+from packages.platform.admin_monitoring import AdminMonitoringStore
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["administration"])
@@ -29,6 +35,12 @@ def get_admin_service(
     session: AsyncSession = Depends(get_admin_session),
 ) -> AdminService:
     return AdminService(session)
+
+
+def get_admin_monitoring_store(
+    session: AsyncSession = Depends(get_admin_session),
+) -> AdminMonitoringStore:
+    return create_admin_monitoring_store(session)
 
 
 def _request_metadata(request: Request) -> dict[str, str | None]:
@@ -137,6 +149,33 @@ async def list_audit_logs(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/feedback", response_model=AdminFeedbackList)
+async def list_feedback(
+    window_hours: int = Query(default=24, ge=1, le=24 * 30),
+    rating: Literal[-1, 1] | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _context: AuthContext = Depends(require_admin),
+    store: AdminMonitoringStore = Depends(get_admin_monitoring_store),
+) -> AdminFeedbackList:
+    return AdminFeedbackList.model_validate(
+        await store.list_feedback(
+            window_hours=window_hours,
+            rating=rating,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+
+@router.get("/token-usage", response_model=AdminTokenUsageReport)
+async def get_token_usage(
+    _context: AuthContext = Depends(require_admin),
+    store: AdminMonitoringStore = Depends(get_admin_monitoring_store),
+) -> AdminTokenUsageReport:
+    return AdminTokenUsageReport.model_validate(await store.token_usage())
 
 
 @router.delete(

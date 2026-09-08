@@ -23,9 +23,11 @@
         <nav aria-label="管理导航">
           <p>工作区</p>
           <button type="button" class="active" data-panel="users"><span>01</span>账号管理</button>
-          <button type="button" data-panel="knowledge"><span>02</span>知识库</button>
-          <button type="button" data-panel="audit"><span>03</span>审计记录</button>
-          <button type="button" data-panel="pilot"><span>04</span>试点运行</button>
+          <button type="button" data-panel="knowledge"><span>02</span>文档管理</button>
+          <button type="button" data-panel="feedback"><span>03</span>实时反馈<i class="nav-live-dot" aria-hidden="true"></i></button>
+          <button type="button" data-panel="tokens"><span>04</span>Token 告警<b id="token-nav-badge" hidden>0</b></button>
+          <button type="button" data-panel="audit"><span>05</span>审计记录</button>
+          <button type="button" data-panel="pilot"><span>06</span>试点运行</button>
         </nav>
         <div class="admin-side-foot">
           <a href="/">返回问答工作台</a>
@@ -39,7 +41,10 @@
       <main class="admin-workspace">
         <header class="admin-topbar">
           <div><p class="eyebrow">INSIGHTAGENT CONSOLE</p><h1 id="page-title">账号管理</h1></div>
-          <div class="admin-identity"><span id="admin-avatar">管</span><div><strong id="admin-name">正在验证</strong><small>管理员</small></div></div>
+          <div class="admin-top-actions">
+            <div class="monitor-chip" id="monitor-chip" data-level="normal"><i aria-hidden="true"></i><span>监控连接中</span></div>
+            <div class="admin-identity"><span id="admin-avatar">管</span><div><strong id="admin-name">正在验证</strong><small>管理员</small></div></div>
+          </div>
         </header>
 
         <section class="admin-panel" id="panel-users">
@@ -70,6 +75,13 @@
         </section>
 
         <section class="admin-panel" id="panel-knowledge" hidden>
+          <div class="stat-grid document-stat-grid">
+            <article><small>文档总数</small><strong id="document-stat-total">—</strong><span>当前知识库文件</span></article>
+            <article><small>索引完成</small><strong id="document-stat-ready">—</strong><span>可用于问答检索</span></article>
+            <article><small>待处理 / 异常</small><strong id="document-stat-attention">—</strong><span>需要关注的文档</span></article>
+            <article><small>检索块总数</small><strong id="document-stat-chunks">—</strong><span>可检索子块规模</span></article>
+          </div>
+
           <article class="surface upload-surface">
             <div class="surface-heading"><div><h2>导入知识文档</h2><p>支持 PDF、Word、Markdown、HTML、TXT、Excel 和 JSON。</p></div></div>
             <form id="admin-upload-form" class="upload-form">
@@ -81,11 +93,79 @@
           </article>
 
           <article class="surface">
-            <div class="surface-heading"><div><h2>已入库文档</h2><p>删除会同步清理 MySQL 原文、父子块和 Milvus 向量。</p></div><button type="button" id="refresh-documents">刷新</button></div>
+            <div class="surface-heading"><div><h2>已入库文档</h2><p>按名称、类型和索引状态管理知识内容；删除会同步清理原文、切块和向量。</p></div></div>
+            <div class="toolbar document-toolbar">
+              <input id="document-search" type="search" maxlength="128" placeholder="搜索文档名称或来源" />
+              <select id="document-type-filter"><option value="">全部类型</option></select>
+              <select id="document-status-filter"><option value="">全部状态</option><option value="completed">索引完成</option><option value="pending">等待处理</option><option value="running">正在索引</option><option value="failed">索引失败</option></select>
+              <button type="button" id="refresh-documents">刷新</button>
+            </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>文档</th><th>类型</th><th>版本</th><th>索引规模</th><th>更新时间</th><th>操作</th></tr></thead>
-                <tbody id="document-rows"><tr><td colspan="6" class="empty-cell">正在加载文档…</td></tr></tbody>
+                <thead><tr><th>文档</th><th>类型</th><th>状态</th><th>版本</th><th>索引规模</th><th>更新时间</th><th>操作</th></tr></thead>
+                <tbody id="document-rows"><tr><td colspan="7" class="empty-cell">正在加载文档…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="admin-panel" id="panel-feedback" hidden>
+          <div class="stat-grid feedback-stat-grid">
+            <article><small>24 小时反馈</small><strong id="feedback-stat-total">—</strong><span>用户主动评价总数</span></article>
+            <article><small>满意</small><strong id="feedback-stat-positive">—</strong><span>点赞反馈</span></article>
+            <article><small>待改进</small><strong id="feedback-stat-negative">—</strong><span>点踩及纠错反馈</span></article>
+            <article><small>满意率</small><strong id="feedback-stat-rate">—</strong><span>按当前时间窗口</span></article>
+          </div>
+
+          <article class="surface live-feedback-surface">
+            <div class="surface-heading">
+              <div><h2>用户问答实时反馈</h2><p>每 5 秒同步新的点赞、点踩、备注和参考纠正。</p></div>
+              <div class="surface-actions"><span class="live-state" id="feedback-live-state"><i aria-hidden="true"></i>实时同步</span><button type="button" id="feedback-live-toggle">暂停</button></div>
+            </div>
+            <div class="toolbar feedback-toolbar">
+              <select id="feedback-window"><option value="24">最近 24 小时</option><option value="168">最近 7 天</option><option value="720">最近 30 天</option></select>
+              <select id="feedback-rating-filter"><option value="">全部评价</option><option value="1">只看满意</option><option value="-1">只看待改进</option></select>
+              <button type="button" id="refresh-feedback">立即同步</button>
+              <span class="sync-time" id="feedback-sync-time">等待首次同步</span>
+            </div>
+            <div class="feedback-stream" id="feedback-stream"><div class="stream-empty">正在读取用户反馈…</div></div>
+          </article>
+        </section>
+
+        <section class="admin-panel" id="panel-tokens" hidden>
+          <div class="stat-grid token-stat-grid">
+            <article><small>Token 总量</small><strong id="token-stat-total">—</strong><span id="token-window-label">最近 24 小时</span></article>
+            <article><small>输入 Token</small><strong id="token-stat-prompt">—</strong><span>提示词与检索上下文</span></article>
+            <article><small>输出 Token</small><strong id="token-stat-completion">—</strong><span>模型生成内容</span></article>
+            <article><small>单次平均</small><strong id="token-stat-average">—</strong><span id="token-run-count">等待统计</span></article>
+          </div>
+
+          <article class="surface token-budget-surface" id="token-budget-surface" data-level="normal">
+            <div class="surface-heading">
+              <div><h2>Token 预算告警</h2><p id="token-budget-copy">正在读取监控阈值…</p></div>
+              <button type="button" id="refresh-tokens">刷新监控</button>
+            </div>
+            <div class="token-budget-line"><div id="token-budget-fill"></div></div>
+            <div class="token-budget-meta"><strong id="token-budget-percent">—</strong><span id="token-budget-remaining">—</span><small id="token-sync-time">等待首次同步</small></div>
+          </article>
+
+          <div class="monitor-grid">
+            <article class="surface token-chart-surface">
+              <div class="surface-heading"><div><h2>用量趋势</h2><p>时间窗口内的 Token 消耗分布。</p></div></div>
+              <div class="token-chart" id="token-chart" aria-label="Token 用量趋势"></div>
+            </article>
+            <article class="surface alert-surface">
+              <div class="surface-heading"><div><h2>当前告警</h2><p>窗口预算和单次异常消耗。</p></div><span class="alert-count" id="token-alert-count">0</span></div>
+              <div class="token-alert-list" id="token-alert-list"><div class="stream-empty">正在检查告警…</div></div>
+            </article>
+          </div>
+
+          <article class="surface">
+            <div class="surface-heading"><div><h2>最近问答消耗</h2><p>用于定位高消耗问题，达到单次阈值后会自动标记。</p></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>时间</th><th>用户</th><th>问题</th><th>输入</th><th>输出</th><th>总计</th><th>状态</th></tr></thead>
+                <tbody id="token-run-rows"><tr><td colspan="7" class="empty-cell">正在加载 Token 数据…</td></tr></tbody>
               </table>
             </div>
           </article>

@@ -33,7 +33,44 @@ const ui = {
   uploadSubmit: document.querySelector("#admin-upload-submit"),
   uploadStatus: document.querySelector("#admin-upload-status"),
   documentRows: document.querySelector("#document-rows"),
+  documentSearch: document.querySelector("#document-search"),
+  documentTypeFilter: document.querySelector("#document-type-filter"),
+  documentStatusFilter: document.querySelector("#document-status-filter"),
+  documentStatTotal: document.querySelector("#document-stat-total"),
+  documentStatReady: document.querySelector("#document-stat-ready"),
+  documentStatAttention: document.querySelector("#document-stat-attention"),
+  documentStatChunks: document.querySelector("#document-stat-chunks"),
   refreshDocuments: document.querySelector("#refresh-documents"),
+  feedbackStream: document.querySelector("#feedback-stream"),
+  feedbackWindow: document.querySelector("#feedback-window"),
+  feedbackRatingFilter: document.querySelector("#feedback-rating-filter"),
+  refreshFeedback: document.querySelector("#refresh-feedback"),
+  feedbackLiveToggle: document.querySelector("#feedback-live-toggle"),
+  feedbackLiveState: document.querySelector("#feedback-live-state"),
+  feedbackSyncTime: document.querySelector("#feedback-sync-time"),
+  feedbackStatTotal: document.querySelector("#feedback-stat-total"),
+  feedbackStatPositive: document.querySelector("#feedback-stat-positive"),
+  feedbackStatNegative: document.querySelector("#feedback-stat-negative"),
+  feedbackStatRate: document.querySelector("#feedback-stat-rate"),
+  tokenStatTotal: document.querySelector("#token-stat-total"),
+  tokenStatPrompt: document.querySelector("#token-stat-prompt"),
+  tokenStatCompletion: document.querySelector("#token-stat-completion"),
+  tokenStatAverage: document.querySelector("#token-stat-average"),
+  tokenWindowLabel: document.querySelector("#token-window-label"),
+  tokenRunCount: document.querySelector("#token-run-count"),
+  tokenBudgetSurface: document.querySelector("#token-budget-surface"),
+  tokenBudgetCopy: document.querySelector("#token-budget-copy"),
+  tokenBudgetFill: document.querySelector("#token-budget-fill"),
+  tokenBudgetPercent: document.querySelector("#token-budget-percent"),
+  tokenBudgetRemaining: document.querySelector("#token-budget-remaining"),
+  tokenSyncTime: document.querySelector("#token-sync-time"),
+  tokenChart: document.querySelector("#token-chart"),
+  tokenAlertCount: document.querySelector("#token-alert-count"),
+  tokenAlertList: document.querySelector("#token-alert-list"),
+  tokenRunRows: document.querySelector("#token-run-rows"),
+  tokenNavBadge: document.querySelector("#token-nav-badge"),
+  refreshTokens: document.querySelector("#refresh-tokens"),
+  monitorChip: document.querySelector("#monitor-chip"),
   auditRows: document.querySelector("#audit-rows"),
   refreshAudit: document.querySelector("#refresh-audit"),
   refreshPilot: document.querySelector("#refresh-pilot"),
@@ -64,14 +101,30 @@ const ui = {
 const state = {
   user: null,
   users: [],
+  documents: [],
+  feedbackIds: new Set(),
+  feedbackInitialized: false,
+  feedbackLive: true,
+  activePanel: "users",
+  monitorTimer: null,
+  monitorTick: 0,
+  monitorBusy: false,
   resetUser: null,
   csrfCookieName: "evidence_rag_csrf",
   passwordChangeForced: false,
 };
 
-const panelTitles = { users: "账号管理", knowledge: "知识库管理", audit: "审计记录", pilot: "试点运行" };
+const panelTitles = {
+  users: "账号管理",
+  knowledge: "文档管理",
+  feedback: "实时反馈",
+  tokens: "Token 告警",
+  audit: "审计记录",
+  pilot: "试点运行",
+};
 const statusLabels = { pending: "待审核", active: "已启用", disabled: "已停用" };
 const roleLabels = { admin: "管理员", employee: "普通员工" };
+const documentStatusLabels = { completed: "索引完成", pending: "等待处理", running: "正在索引", failed: "索引失败" };
 const auditLabels = {
   "auth.bootstrap_admin_created": "创建首位管理员",
   "auth.user_registered": "员工申请账号",
@@ -123,7 +176,9 @@ async function request(url, options = {}) {
 
 function formatDate(value) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(`${value}Z`));
+  const text = String(value);
+  const timestamp = /(?:Z|[+-]\d{2}:\d{2})$/i.test(text) ? text : `${text}Z`;
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
 }
 
 function option(value, label, current) {
@@ -135,11 +190,15 @@ function option(value, label, current) {
 }
 
 function switchPanel(name) {
+  state.activePanel = name;
+  if (window.location.hash !== `#${name}`) window.history.replaceState(null, "", `#${name}`);
   ui.nav.forEach((button) => button.classList.toggle("active", button.dataset.panel === name));
   ui.panels.forEach((panel) => { panel.hidden = panel.id !== `panel-${name}`; });
   ui.pageTitle.textContent = panelTitles[name];
   if (name === "users") loadUsers();
   if (name === "knowledge") loadDocuments();
+  if (name === "feedback") loadFeedback();
+  if (name === "tokens") loadTokenUsage();
   if (name === "audit") loadAuditLogs();
   if (name === "pilot") Promise.all([loadPilotOverview(), loadMaintenance()]);
 }
@@ -401,30 +460,62 @@ async function resetPassword(event) {
   }
 }
 
-function renderDocuments(documents) {
+function updateDocumentStats(documents) {
+  const ready = documents.filter((item) => item.index_status === "completed").length;
+  const attention = documents.filter((item) => item.index_status !== "completed").length;
+  const chunks = documents.reduce((total, item) => total + Number(item.child_chunk_count || 0), 0);
+  ui.documentStatTotal.textContent = documents.length.toLocaleString("zh-CN");
+  ui.documentStatReady.textContent = ready.toLocaleString("zh-CN");
+  ui.documentStatAttention.textContent = attention.toLocaleString("zh-CN");
+  ui.documentStatChunks.textContent = chunks.toLocaleString("zh-CN");
+}
+
+function updateDocumentTypeOptions(documents) {
+  const current = ui.documentTypeFilter.value;
+  const types = [...new Set(documents.map((item) => item.doc_type).filter(Boolean))].sort();
+  ui.documentTypeFilter.replaceChildren(option("", "全部类型", current));
+  types.forEach((type) => ui.documentTypeFilter.append(option(type, type, current)));
+}
+
+function filteredDocuments() {
+  const needle = ui.documentSearch.value.trim().toLocaleLowerCase("zh-CN");
+  return state.documents.filter((document) => {
+    const identity = `${document.title || ""} ${document.original_filename || ""} ${document.source || ""}`.toLocaleLowerCase("zh-CN");
+    return (!needle || identity.includes(needle))
+      && (!ui.documentTypeFilter.value || document.doc_type === ui.documentTypeFilter.value)
+      && (!ui.documentStatusFilter.value || document.index_status === ui.documentStatusFilter.value);
+  });
+}
+
+function renderDocuments(documents = filteredDocuments()) {
   ui.documentRows.innerHTML = "";
   if (!documents.length) {
-    ui.documentRows.innerHTML = '<tr><td colspan="6" class="empty-cell">知识库中暂无文档</td></tr>';
+    ui.documentRows.innerHTML = '<tr><td colspan="7" class="empty-cell">没有符合当前条件的文档</td></tr>';
     return;
   }
-  documents.forEach((document) => {
+  documents.forEach((item) => {
     const row = document.createElement("tr");
     const identity = document.createElement("td");
     const title = document.createElement("strong");
-    title.textContent = document.title;
+    title.textContent = item.title;
     const source = document.createElement("small");
-    source.textContent = document.original_filename || document.source;
+    source.textContent = item.original_filename || item.source;
     identity.append(title, source);
-    const type = document.createElement("td"); type.textContent = document.doc_type;
-    const version = document.createElement("td"); version.textContent = document.version;
-    const chunks = document.createElement("td"); chunks.textContent = `${document.parent_chunk_count} 父块 / ${document.child_chunk_count} 子块`;
-    const updated = document.createElement("td"); updated.textContent = formatDate(document.updated_at);
+    const type = document.createElement("td"); type.textContent = item.doc_type;
+    const status = document.createElement("td");
+    const statusPill = document.createElement("span");
+    statusPill.className = `status-pill status-${item.index_status || "pending"}`;
+    statusPill.textContent = documentStatusLabels[item.index_status] || item.index_status || "未知";
+    status.append(statusPill);
+    const version = document.createElement("td"); version.textContent = item.version;
+    const chunks = document.createElement("td"); chunks.textContent = `${item.parent_chunk_count} 父块 / ${item.child_chunk_count} 子块`;
+    const updated = document.createElement("td"); updated.textContent = formatDate(item.updated_at);
     const actions = document.createElement("td");
     const remove = document.createElement("button");
     remove.type = "button"; remove.className = "danger"; remove.textContent = "删除";
-    remove.addEventListener("click", () => deleteDocument(document, remove));
+    remove.addEventListener("click", () => deleteDocument(item, remove));
     const actionRow = document.createElement("div"); actionRow.className = "action-row"; actionRow.append(remove); actions.append(actionRow);
-    row.append(identity, type, version, chunks, updated, actions);
+    row.append(identity, type, status, version, chunks, updated, actions);
     ui.documentRows.append(row);
   });
 }
@@ -432,7 +523,10 @@ function renderDocuments(documents) {
 async function loadDocuments() {
   try {
     const result = await request("/api/v1/knowledge/documents?limit=200");
-    renderDocuments(result.items || []);
+    state.documents = result.items || [];
+    updateDocumentStats(state.documents);
+    updateDocumentTypeOptions(state.documents);
+    renderDocuments();
   } catch (error) {
     showToast(error.message, true);
   }
@@ -491,6 +585,245 @@ async function uploadKnowledge(event) {
   } finally {
     ui.uploadSubmit.disabled = false;
   }
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("zh-CN");
+}
+
+function identityLabel(item) {
+  if (item.display_name) return item.display_name;
+  if (item.username) return `@${item.username}`;
+  return `用户 ${String(item.user_id || "").slice(0, 8)}`;
+}
+
+function feedbackDetail(label, value) {
+  const block = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = label;
+  const copy = document.createElement("span");
+  copy.textContent = value;
+  block.append(title, copy);
+  return block;
+}
+
+function renderFeedback(data) {
+  ui.feedbackStatTotal.textContent = formatNumber(Number(data.positive || 0) + Number(data.negative || 0));
+  ui.feedbackStatPositive.textContent = formatNumber(data.positive);
+  ui.feedbackStatNegative.textContent = formatNumber(data.negative);
+  ui.feedbackStatRate.textContent = formatRate(data.positive_rate);
+  ui.feedbackSyncTime.textContent = `上次同步 ${new Intl.DateTimeFormat("zh-CN", { timeStyle: "medium" }).format(new Date())}`;
+
+  const items = data.items || [];
+  ui.feedbackStream.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "stream-empty";
+    empty.textContent = "当前时间窗口内还没有用户反馈";
+    ui.feedbackStream.append(empty);
+  }
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    const positive = item.rating === 1;
+    card.className = `feedback-item ${positive ? "positive" : "negative"}`;
+    if (state.feedbackInitialized && !state.feedbackIds.has(item.feedback_id)) card.classList.add("is-new");
+
+    const rating = document.createElement("div");
+    rating.className = "feedback-rating";
+    rating.textContent = positive ? "✓" : "!";
+
+    const main = document.createElement("div");
+    main.className = "feedback-main";
+    const meta = document.createElement("div");
+    meta.className = "feedback-meta";
+    const person = document.createElement("strong");
+    person.textContent = identityLabel(item);
+    const sentiment = document.createElement("span");
+    sentiment.textContent = positive ? "满意" : "待改进";
+    const run = document.createElement("span");
+    run.textContent = `运行 ${String(item.run_id).slice(0, 8)}`;
+    meta.append(person, sentiment, run);
+
+    const question = document.createElement("p");
+    question.className = "feedback-question";
+    question.textContent = item.question || "问题内容不可用";
+    main.append(meta, question);
+
+    const details = document.createElement("div");
+    details.className = "feedback-detail";
+    if (item.comment) details.append(feedbackDetail("反馈备注", item.comment));
+    if (item.correction) details.append(feedbackDetail("参考纠正", item.correction));
+    if (item.answer_preview) details.append(feedbackDetail("回答摘要", item.answer_preview));
+    if (!details.childElementCount) details.append(feedbackDetail("评价", positive ? "用户认可本次回答" : "用户认为本次回答需要改进"));
+    main.append(details);
+
+    const time = document.createElement("time");
+    time.className = "feedback-time";
+    time.dateTime = item.created_at;
+    time.textContent = formatDate(item.created_at);
+    card.append(rating, main, time);
+    ui.feedbackStream.append(card);
+  });
+  state.feedbackIds = new Set(items.map((item) => item.feedback_id));
+  state.feedbackInitialized = true;
+}
+
+async function loadFeedback(silent = false) {
+  if (state.feedbackLoading) return;
+  state.feedbackLoading = true;
+  const params = new URLSearchParams({
+    window_hours: ui.feedbackWindow.value,
+    limit: "100",
+  });
+  if (ui.feedbackRatingFilter.value) params.set("rating", ui.feedbackRatingFilter.value);
+  try {
+    renderFeedback(await request(`/api/v1/admin/feedback?${params}`));
+  } catch (error) {
+    ui.feedbackSyncTime.textContent = "同步暂时中断";
+    if (!silent) showToast(error.message, true);
+  } finally {
+    state.feedbackLoading = false;
+  }
+}
+
+function setFeedbackLive(enabled) {
+  state.feedbackLive = enabled;
+  ui.feedbackLiveToggle.textContent = enabled ? "暂停" : "继续同步";
+  ui.feedbackLiveState.classList.toggle("paused", !enabled);
+  ui.feedbackLiveState.lastChild.textContent = enabled ? "实时同步" : "已暂停";
+  if (enabled) loadFeedback();
+}
+
+function setMonitorStatus(level, text) {
+  ui.monitorChip.dataset.level = level;
+  ui.monitorChip.querySelector("span").textContent = text;
+}
+
+function renderTokenChart(series) {
+  ui.tokenChart.replaceChildren();
+  const points = series || [];
+  const maximum = Math.max(1, ...points.map((item) => Number(item.total_tokens || 0)));
+  if (!points.length) {
+    const empty = document.createElement("div");
+    empty.className = "stream-empty";
+    empty.textContent = "暂无 Token 趋势数据";
+    ui.tokenChart.append(empty);
+    return;
+  }
+  points.forEach((point) => {
+    const wrap = document.createElement("div");
+    wrap.className = "token-bar-wrap";
+    const bar = document.createElement("div");
+    bar.className = "token-bar";
+    bar.style.height = `${Math.max(3, (Number(point.total_tokens || 0) / maximum) * 100)}%`;
+    bar.title = `${formatDate(point.started_at)} · ${formatNumber(point.total_tokens)} Token`;
+    const label = document.createElement("span");
+    const timestamp = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(point.started_at) ? point.started_at : `${point.started_at}Z`);
+    label.textContent = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(timestamp);
+    wrap.append(bar, label);
+    ui.tokenChart.append(wrap);
+  });
+}
+
+function renderTokenAlerts(alerts) {
+  ui.tokenAlertList.replaceChildren();
+  ui.tokenAlertCount.textContent = String(alerts.length);
+  ui.tokenNavBadge.textContent = String(alerts.length);
+  ui.tokenNavBadge.hidden = alerts.length === 0;
+  if (!alerts.length) {
+    const ok = document.createElement("div");
+    ok.className = "token-ok";
+    const icon = document.createElement("i");
+    icon.textContent = "✓";
+    const copy = document.createElement("span");
+    copy.textContent = "Token 用量正常，当前没有告警。";
+    ok.append(icon, copy);
+    ui.tokenAlertList.append(ok);
+    return;
+  }
+  alerts.forEach((alert) => {
+    const item = document.createElement("div");
+    item.className = `token-alert ${alert.level}`;
+    const message = document.createElement("strong");
+    message.textContent = alert.message;
+    const detail = document.createElement("small");
+    detail.textContent = `阈值 ${formatNumber(alert.threshold)} · ${formatDate(alert.created_at)}`;
+    item.append(message, detail);
+    ui.tokenAlertList.append(item);
+  });
+}
+
+function renderTokenRuns(runs, threshold) {
+  ui.tokenRunRows.replaceChildren();
+  if (!runs.length) {
+    ui.tokenRunRows.innerHTML = '<tr><td colspan="7" class="empty-cell">当前时间窗口内暂无 Token 记录</td></tr>';
+    return;
+  }
+  runs.forEach((run) => {
+    const row = document.createElement("tr");
+    const time = document.createElement("td"); time.textContent = formatDate(run.created_at);
+    const person = document.createElement("td"); person.textContent = identityLabel(run);
+    const question = document.createElement("td"); question.className = "token-run-question"; question.textContent = run.question;
+    const prompt = document.createElement("td"); prompt.textContent = formatNumber(run.prompt_tokens);
+    const completion = document.createElement("td"); completion.textContent = formatNumber(run.completion_tokens);
+    const total = document.createElement("td"); total.textContent = formatNumber(run.total_tokens);
+    const hot = Number(run.total_tokens) >= Number(threshold);
+    total.classList.toggle("token-count-hot", hot);
+    const status = document.createElement("td");
+    const pill = document.createElement("span");
+    pill.className = `status-pill ${hot ? "status-failed" : "status-completed"}`;
+    pill.textContent = hot ? "超过单次阈值" : "正常";
+    status.append(pill);
+    row.append(time, person, question, prompt, completion, total, status);
+    ui.tokenRunRows.append(row);
+  });
+}
+
+function renderTokenUsage(data) {
+  const summary = data.summary || {};
+  const budget = data.budget || {};
+  const ratio = Number(budget.usage_ratio || 0);
+  const percent = ratio * 100;
+  ui.tokenStatTotal.textContent = formatNumber(summary.total_tokens);
+  ui.tokenStatPrompt.textContent = formatNumber(summary.prompt_tokens);
+  ui.tokenStatCompletion.textContent = formatNumber(summary.completion_tokens);
+  ui.tokenStatAverage.textContent = formatNumber(summary.average_tokens_per_run);
+  ui.tokenWindowLabel.textContent = `最近 ${data.window_hours} 小时`;
+  ui.tokenRunCount.textContent = `${formatNumber(summary.run_count)} 次已完成问答`;
+  ui.tokenBudgetSurface.dataset.level = budget.status || "normal";
+  ui.tokenBudgetFill.style.width = `${Math.min(100, percent)}%`;
+  ui.tokenBudgetPercent.textContent = `${percent.toFixed(1)}%`;
+  ui.tokenBudgetRemaining.textContent = `剩余 ${formatNumber(budget.remaining_tokens)} Token`;
+  ui.tokenBudgetCopy.textContent = `${data.window_hours} 小时上限 ${formatNumber(budget.window_limit)} Token；达到 ${(Number(budget.warning_ratio || 0.8) * 100).toFixed(0)}% 时预警，单次超过 ${formatNumber(budget.per_run_threshold)} Token 时标记。`;
+  ui.tokenSyncTime.textContent = `更新于 ${new Intl.DateTimeFormat("zh-CN", { timeStyle: "medium" }).format(new Date())}`;
+  renderTokenChart(data.series || []);
+  renderTokenAlerts(data.alerts || []);
+  renderTokenRuns(data.recent_runs || [], budget.per_run_threshold);
+  const labels = { normal: "Token 用量正常", warning: "Token 用量预警", critical: "Token 用量告警" };
+  setMonitorStatus(data.status || "normal", labels[data.status] || labels.normal);
+}
+
+async function loadTokenUsage(silent = false) {
+  if (state.tokenLoading) return;
+  state.tokenLoading = true;
+  try {
+    renderTokenUsage(await request("/api/v1/admin/token-usage"));
+  } catch (error) {
+    setMonitorStatus("critical", "监控暂时中断");
+    if (!silent) showToast(error.message, true);
+  } finally {
+    state.tokenLoading = false;
+  }
+}
+
+function startLiveMonitoring() {
+  window.clearInterval(state.monitorTimer);
+  state.monitorTimer = window.setInterval(() => {
+    if (document.hidden) return;
+    state.monitorTick += 1;
+    if (state.activePanel === "feedback" && state.feedbackLive) loadFeedback(true);
+    if (state.activePanel === "tokens" || state.monitorTick % 6 === 0) loadTokenUsage(true);
+  }, 5000);
 }
 
 function renderAuditLogs(items) {
@@ -576,7 +909,12 @@ async function initialize() {
       openPasswordDialog(true);
       return;
     }
-    await loadUsers();
+    const requestedPanel = window.location.hash.slice(1);
+    const initialPanel = panelTitles[requestedPanel] ? requestedPanel : "users";
+    if (initialPanel === "users") await loadUsers();
+    else switchPanel(initialPanel);
+    await loadTokenUsage(true);
+    startLiveMonitoring();
   } catch (error) {
     if (error.status !== 401) showToast(error.message, true);
   }
@@ -600,8 +938,21 @@ document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addE
 ui.files.addEventListener("change", () => { const count = (ui.files.files || []).length; ui.fileLabel.textContent = count ? `已选择 ${count} 个文件` : "选择一个或多个文件"; });
 ui.uploadForm.addEventListener("submit", uploadKnowledge);
 ui.refreshDocuments.addEventListener("click", loadDocuments);
+ui.documentSearch.addEventListener("input", () => renderDocuments());
+ui.documentTypeFilter.addEventListener("change", () => renderDocuments());
+ui.documentStatusFilter.addEventListener("change", () => renderDocuments());
+ui.refreshFeedback.addEventListener("click", () => loadFeedback());
+ui.feedbackWindow.addEventListener("change", () => { state.feedbackInitialized = false; loadFeedback(); });
+ui.feedbackRatingFilter.addEventListener("change", () => { state.feedbackInitialized = false; loadFeedback(); });
+ui.feedbackLiveToggle.addEventListener("click", () => setFeedbackLive(!state.feedbackLive));
+ui.refreshTokens.addEventListener("click", () => loadTokenUsage());
 ui.refreshAudit.addEventListener("click", loadAuditLogs);
 ui.refreshPilot.addEventListener("click", loadPilotOverview);
 ui.refreshMaintenance.addEventListener("click", loadMaintenance);
 ui.runCleanup.addEventListener("click", runMaintenanceCleanup);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (state.activePanel === "feedback" && state.feedbackLive) loadFeedback(true);
+  loadTokenUsage(true);
+});
 initialize();

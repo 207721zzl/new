@@ -408,7 +408,7 @@ class AgentRun(Base):
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
+        DateTime, nullable=False, server_default=func.current_timestamp(), index=True
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -716,7 +716,7 @@ class UserFeedback(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     correction: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
+        DateTime, nullable=False, server_default=func.current_timestamp(), index=True
     )
 
     __table_args__ = (CheckConstraint("rating IN (-1, 1)", name="rating_allowed"),)

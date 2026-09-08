@@ -11,6 +11,14 @@ class Redis:
         return True
 
 
+def test_gateway_routes_admin_monitoring_to_chat_domain():
+    from services.gateway.api import target_for
+
+    assert target_for("/api/v1/admin/feedback") == "chat"
+    assert target_for("/api/v1/admin/token-usage") == "chat"
+    assert target_for("/api/v1/admin/knowledge/documents/example") == "knowledge"
+
+
 @pytest.mark.asyncio
 async def test_proxy_preserves_cookies_and_strips_forged_identity(monkeypatch):
     from services.gateway.api import app

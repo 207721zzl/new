@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     pilot_query_requests_per_minute: int = Field(default=30, ge=1, le=1000)
     pilot_upload_requests_per_hour: int = Field(default=20, ge=1, le=1000)
 
+    # 管理后台 Token 监控。窗口上限用于预算告警，单次阈值用于识别异常问答。
+    admin_token_alert_window_hours: int = Field(default=24, ge=1, le=24 * 30)
+    admin_token_alert_window_limit: int = Field(default=1_000_000, ge=1_000)
+    admin_token_alert_per_run_threshold: int = Field(default=10_000, ge=100)
+    admin_token_alert_warning_ratio: float = Field(default=0.8, ge=0.1, lt=1)
+
     database_url: SecretStr = SecretStr(
         "mysql+asyncmy://insight_agent:insight_agent@127.0.0.1:13306/"
         "insight_agent?charset=utf8mb4"

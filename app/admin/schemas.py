@@ -122,3 +122,99 @@ class KnowledgeDocumentDeleted(BaseModel):
     child_chunk_count: int = Field(ge=0)
     status: Literal["deleted"] = "deleted"
 
+
+class AdminFeedbackSummary(BaseModel):
+    feedback_id: str
+    run_id: str
+    conversation_id: str
+    user_id: str
+    username: str | None = None
+    display_name: str | None = None
+    rating: Literal[-1, 1]
+    question: str | None = None
+    answer_preview: str | None = None
+    comment: str | None = None
+    correction: str | None = None
+    created_at: datetime
+
+
+class AdminFeedbackList(BaseModel):
+    generated_at: datetime
+    window_hours: int = Field(ge=1)
+    positive: int = Field(ge=0)
+    negative: int = Field(ge=0)
+    positive_rate: float | None = Field(default=None, ge=0, le=1)
+    items: list[AdminFeedbackSummary]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+
+
+TokenAlertLevel = Literal["normal", "warning", "critical"]
+
+
+class AdminTokenSummary(BaseModel):
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    run_count: int = Field(ge=0)
+    average_tokens_per_run: int = Field(ge=0)
+
+
+class AdminTokenBudget(BaseModel):
+    window_limit: int = Field(ge=1)
+    per_run_threshold: int = Field(ge=1)
+    warning_ratio: float = Field(ge=0, lt=1)
+    usage_ratio: float = Field(ge=0)
+    remaining_tokens: int = Field(ge=0)
+    status: TokenAlertLevel
+
+
+class AdminTokenAlert(BaseModel):
+    kind: Literal["window_limit", "single_run"]
+    level: Literal["warning", "critical"]
+    message: str
+    run_id: str | None = None
+    value: int = Field(ge=0)
+    threshold: int = Field(ge=1)
+    created_at: datetime
+
+
+class AdminTokenSeriesPoint(BaseModel):
+    started_at: datetime
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+
+
+class AdminTokenUserSummary(BaseModel):
+    user_id: str
+    username: str | None = None
+    display_name: str | None = None
+    run_count: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+
+
+class AdminTokenRunSummary(BaseModel):
+    run_id: str
+    user_id: str
+    username: str | None = None
+    display_name: str | None = None
+    identity: str
+    question: str
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    created_at: datetime
+
+
+class AdminTokenUsageReport(BaseModel):
+    generated_at: datetime
+    window_hours: int = Field(ge=1)
+    status: TokenAlertLevel
+    summary: AdminTokenSummary
+    budget: AdminTokenBudget
+    alerts: list[AdminTokenAlert]
+    series: list[AdminTokenSeriesPoint]
+    top_users: list[AdminTokenUserSummary]
+    recent_runs: list[AdminTokenRunSummary]
