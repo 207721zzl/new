@@ -1,0 +1,15 @@
+[
+  {
+    "document_id": "evidence-rag-overview",
+    "title": "EvidenceRAG 使用说明",
+    "content": "EvidenceRAG 支持 PDF、Word、Markdown、HTML、TXT、Excel 和统一 JSON 文档。系统会先保留标题、章节、页码和表格行号等结构信息，再按章节或页面组织父块，在父块内部创建带重叠的检索子块。\n\n在线查询先完成多轮问题补全和检索查询改写，然后使用 BGE-M3 Dense 向量与 Milvus BM25 混合召回。候选结果经过交叉编码器重排和最低相关性门槛后，系统按 parent_chunk_id 从 MySQL 恢复完整父块，并只根据这些证据生成答案。\n\n回答中的引用包含文档标题、来源、版本、章节路径、页码、检索分数和重排分数。没有足够相关证据时，系统直接返回知识不足，不调用生成模型编造答案。",
+    "doc_type": "guide",
+    "source": "data/knowledge/example.json",
+    "version": "1.0",
+    "updated_at": "2026-08-12",
+    "language": "zh-CN",
+    "metadata": {
+      "owner": "EvidenceRAG"
+    }
+  }
+]

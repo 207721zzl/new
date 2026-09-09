@@ -15,7 +15,10 @@ outputs/
 __pycache__/
 *.py[cod]
 logs/
-data/knowledge/uploads/
+data/*
+!data/knowledge/
+data/knowledge/*
+!data/knowledge/example.json
 volumes/
 backups/
 reports/*
