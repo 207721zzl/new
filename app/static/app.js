@@ -79,9 +79,11 @@ function readCookie(name) {
   return item ? decodeURIComponent(item.slice(prefix.length)) : null;
 }
 
-function loginUrl() {
+function loginUrl(reason = null) {
   const next = `${window.location.pathname}${window.location.search}`;
-  return `/login?next=${encodeURIComponent(next)}`;
+  const params = new URLSearchParams({ next });
+  if (reason) params.set("reason", reason);
+  return `/login?${params.toString()}`;
 }
 
 async function request(url, options = {}) {
@@ -106,7 +108,8 @@ async function request(url, options = {}) {
       code = payload?.error?.code || code;
     } catch (_) { /* 保留稳定错误 */ }
     if (response.status === 401) {
-      window.location.replace(loginUrl());
+      const reason = code === "session_replaced" ? code : null;
+      window.location.replace(loginUrl(reason));
     } else if (code === "password_change_required") {
       openPasswordDialog(true);
     }

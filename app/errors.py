@@ -127,6 +127,13 @@ class AuthenticationRequiredError(AppError):
     public_message = "请先登录后再继续操作。"
 
 
+class SessionReplacedError(AuthenticationRequiredError):
+    """同一账号在其他设备重新登录，当前会话已被替换。"""
+
+    code = "session_replaced"
+    public_message = "当前账号已在其他设备登录，本设备已自动退出。"
+
+
 class InvalidCredentialsError(AppError):
     """登录名或密码不匹配。"""
 

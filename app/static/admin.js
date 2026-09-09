@@ -129,6 +129,7 @@ const auditLabels = {
   "auth.bootstrap_admin_created": "创建首位管理员",
   "auth.user_registered": "员工申请账号",
   "auth.password_changed": "用户修改密码",
+  "auth.session_replaced": "账号在其他设备重新登录",
   "admin.user_created": "管理员新建账号",
   "admin.user_updated": "调整账号状态",
   "admin.user_password_reset": "重置用户密码",
@@ -141,6 +142,12 @@ function readCookie(name) {
   const prefix = `${name}=`;
   const item = document.cookie.split("; ").find((value) => value.startsWith(prefix));
   return item ? decodeURIComponent(item.slice(prefix.length)) : null;
+}
+
+function adminLoginUrl(reason = null) {
+  const params = new URLSearchParams({ next: "/admin" });
+  if (reason) params.set("reason", reason);
+  return `/login?${params.toString()}`;
 }
 
 function showToast(message, error = false) {
@@ -187,7 +194,10 @@ async function request(url, options = {}) {
   try { payload = await response.json(); } catch (_) { /* 空响应 */ }
   if (!response.ok) {
     const code = payload?.error?.code;
-    if (response.status === 401) window.location.replace("/login?next=%2Fadmin");
+    if (response.status === 401) {
+      const reason = code === "session_replaced" ? code : null;
+      window.location.replace(adminLoginUrl(reason));
+    }
     if (code === "password_change_required") openPasswordDialog(true);
     if (code === "permission_denied") window.location.replace("/");
     const error = new Error(responseErrorMessage(payload, response.status));

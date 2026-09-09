@@ -59,7 +59,10 @@ async function apiRequest(url, options = {}) {
   try { payload = await response.json(); } catch (_) { /* 空响应 */ }
   if (!response.ok) {
     const message = responseErrorMessage(payload, response.status);
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = payload?.error?.code || "request_failed";
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -139,6 +142,10 @@ async function redirectAuthenticatedUser() {
   }
   if (params.has("logged_out")) {
     showMessage("你已安全退出。", false);
+    return;
+  }
+  if (params.get("reason") === "session_replaced") {
+    showMessage("当前账号已在其他设备登录，本设备已自动退出。", true);
     return;
   }
   try {

@@ -14,6 +14,7 @@ from app.errors import (
     CsrfValidationError,
     PasswordChangeRequiredError,
     PermissionDeniedError,
+    SessionReplacedError,
 )
 
 
@@ -95,6 +96,9 @@ async def get_optional_auth_context(
         return None
     try:
         return await service.authenticate(token)
+    except SessionReplacedError:
+        request.state.auth_session_replaced = True
+        return None
     except AuthenticationRequiredError:
         return None
 

@@ -55,6 +55,7 @@ def test_health_root_and_openapi(monkeypatch):
     assert root.headers["location"] == "/login?next=%2F"
     assert login.status_code == 200
     assert "登录工作台" in login.text
+    assert "同一账号仅允许一处在线" in login.text
     assert admin.status_code == 303
     assert admin.headers["location"] == "/login?next=%2Fadmin"
     assert "/api/v1/knowledge/uploads" in schema["paths"]

@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from fastapi import Request
 from tests_microservices.conftest import TOKEN
 
 
@@ -17,6 +18,29 @@ def test_gateway_routes_admin_monitoring_to_chat_domain():
     assert target_for("/api/v1/admin/feedback") == "chat"
     assert target_for("/api/v1/admin/token-usage") == "chat"
     assert target_for("/api/v1/admin/knowledge/documents/example") == "knowledge"
+
+
+@pytest.mark.asyncio
+async def test_gateway_redirect_explains_when_another_login_replaced_session():
+    from packages.platform.auth import get_optional_auth_context
+    from services.gateway.api import app
+
+    async def replaced_session(request: Request):
+        request.state.auth_session_replaced = True
+        return None
+
+    app.dependency_overrides[get_optional_auth_context] = replaced_session
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://gateway",
+        ) as browser:
+            response = await browser.get("/", follow_redirects=False)
+    finally:
+        app.dependency_overrides.pop(get_optional_auth_context, None)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?next=%2F&reason=session_replaced"
 
 
 @pytest.mark.asyncio
@@ -86,3 +110,27 @@ async def test_proxy_streams_sse_and_forwards_replay_cursor():
             )
             assert response.status_code == 200 and "id: 3" in response.text
             assert response.headers["x-accel-buffering"] == "no"
+
+
+@pytest.mark.asyncio
+async def test_service_client_preserves_replaced_session_reason(monkeypatch):
+    from app.errors import SessionReplacedError
+    from packages.platform.client import ServiceClient
+
+    async def upstream(_request):
+        return httpx.Response(
+            401,
+            json={
+                "error": {
+                    "code": "session_replaced",
+                    "message": "当前账号已在其他设备登录，本设备已自动退出。",
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as client:
+        monkeypatch.setattr(
+            "packages.platform.client.pooled_client", lambda: client
+        )
+        with pytest.raises(SessionReplacedError):
+            await ServiceClient("identity").post("/internal/v1/authenticate", {})

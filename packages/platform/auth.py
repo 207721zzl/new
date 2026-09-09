@@ -2,7 +2,12 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from fastapi import Depends, Request
 from app.auth.constants import ROLE_ADMIN, ROLE_EMPLOYEE
-from app.errors import AuthenticationRequiredError, PasswordChangeRequiredError, PermissionDeniedError
+from app.errors import (
+    AuthenticationRequiredError,
+    PasswordChangeRequiredError,
+    PermissionDeniedError,
+    SessionReplacedError,
+)
 from packages.platform.client import ServiceClient
 
 
@@ -31,6 +36,9 @@ async def get_optional_auth_context(request: Request):
         return None
     try:
         return await authenticate(request)
+    except SessionReplacedError:
+        request.state.auth_session_replaced = True
+        return None
     except AuthenticationRequiredError:
         return None
 

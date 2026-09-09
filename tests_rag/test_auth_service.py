@@ -20,6 +20,7 @@ from app.errors import (
     AuthenticationRequiredError,
     InvalidCredentialsError,
     PasswordChangeError,
+    SessionReplacedError,
     UsernameUnavailableError,
 )
 
@@ -63,17 +64,25 @@ def _auth_session(**overrides) -> AuthSession:
 
 
 class FakeResult:
-    def __init__(self, row) -> None:
+    def __init__(self, row, *, rowcount: int = 0) -> None:
         self.row = row
+        self.rowcount = rowcount
 
     def first(self):
         return self.row
 
 
 class FakeSession:
-    def __init__(self, *, scalar_results=(), execute_results=()) -> None:
+    def __init__(
+        self,
+        *,
+        scalar_results=(),
+        execute_results=(),
+        execute_rowcounts=(),
+    ) -> None:
         self.scalar_results = list(scalar_results)
         self.execute_results = list(execute_results)
+        self.execute_rowcounts = list(execute_rowcounts)
         self.added = []
         self.executed = []
         self.flush_count = 0
@@ -86,7 +95,8 @@ class FakeSession:
     async def execute(self, statement):
         self.executed.append(statement)
         row = self.execute_results.pop(0) if self.execute_results else None
-        return FakeResult(row)
+        rowcount = self.execute_rowcounts.pop(0) if self.execute_rowcounts else 0
+        return FakeResult(row, rowcount=rowcount)
 
     def add(self, value) -> None:
         self.added.append(value)
@@ -167,7 +177,27 @@ def test_active_user_login_issues_hashed_server_side_session() -> None:
     )
     assert user.failed_login_count == 0
     assert user.last_login_at is not None
+    assert len(session.executed) == 1
     assert session.commit_count == 1
+
+
+def test_login_revokes_previous_sessions_and_records_security_audit() -> None:
+    user = _user()
+    session = FakeSession(scalar_results=[user], execute_rowcounts=[2])
+
+    asyncio.run(
+        AuthService(session, Settings(_env_file=None)).login(
+            username=user.username,
+            password="correct horse battery staple",
+            ip_address="203.0.113.10",
+            user_agent="new-device",
+        )
+    )
+
+    assert isinstance(session.added[0], AuthSession)
+    assert isinstance(session.added[1], AdminAuditLog)
+    assert session.added[1].action == "auth.session_replaced"
+    assert session.added[1].details == {"revoked_sessions": 2}
 
 
 def test_failed_login_updates_counter_and_locks_at_configured_threshold() -> None:
@@ -225,6 +255,20 @@ def test_authenticate_rejects_expired_session_and_revokes_it() -> None:
 
     assert auth_session.revoked_at is not None
     assert session.commit_count == 1
+
+
+def test_authenticate_reports_when_a_new_login_replaced_the_session() -> None:
+    user = _user()
+    auth_session = _auth_session(revoked_at=_now() - timedelta(seconds=1))
+    session = FakeSession(
+        scalar_results=["replacement-session"],
+        execute_results=[(auth_session, user)],
+    )
+
+    with pytest.raises(SessionReplacedError):
+        asyncio.run(
+            AuthService(session, Settings(_env_file=None)).authenticate("old-token")
+        )
 
 
 def test_csrf_token_must_match_the_authenticated_session() -> None:

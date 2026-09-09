@@ -283,10 +283,14 @@ async def log_http_request(request: Request, call_next):
 
 @app.get("/", include_in_schema=False)
 async def root(
+    request: Request,
     context: AuthContext | None = Depends(get_optional_auth_context),
 ):
     if context is None:
-        return RedirectResponse("/login?next=%2F", status_code=303)
+        reason = "&reason=session_replaced" if getattr(
+            request.state, "auth_session_replaced", False
+        ) else ""
+        return RedirectResponse(f"/login?next=%2F{reason}", status_code=303)
     if context.user.role == ROLE_ADMIN:
         return RedirectResponse("/admin", status_code=303)
     return FileResponse(PROJECT_ROOT / "app" / "static" / "index.html")
@@ -299,10 +303,16 @@ async def login_page():
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page(
+    request: Request,
     context: AuthContext | None = Depends(get_optional_auth_context),
 ):
     if context is None:
-        return RedirectResponse("/login?next=%2Fadmin", status_code=303)
+        reason = "&reason=session_replaced" if getattr(
+            request.state, "auth_session_replaced", False
+        ) else ""
+        return RedirectResponse(
+            f"/login?next=%2Fadmin{reason}", status_code=303
+        )
     if context.user.role != ROLE_ADMIN:
         return RedirectResponse("/", status_code=303)
     return FileResponse(PROJECT_ROOT / "app" / "static" / "admin.html")

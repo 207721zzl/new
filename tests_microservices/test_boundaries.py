@@ -75,3 +75,71 @@ async def test_identity_login_csrf_and_session_revocation(databases):
         assert response.json()["user_id"]=="employee"
         assert (await client.post("/api/v1/auth/logout",headers={"X-CSRF-Token":csrf})).status_code==204
         assert (await client.get("/api/v1/auth/me")).status_code==401
+
+
+@pytest.mark.asyncio
+async def test_identity_keeps_only_the_latest_login_session(databases):
+    from sqlalchemy import func, select
+    from services.identity.api import app
+    from services.identity.db import session_factory
+    from services.identity.models import AdminAuditLog, AuthSession, User
+    from app.auth.security import hash_password
+
+    async with session_factory() as session:
+        session.add(User(
+            user_id="single-user",
+            username="single-user",
+            normalized_username="single-user",
+            display_name="单会话用户",
+            password_hash=hash_password("Password12345!"),
+            role="employee",
+            status="active",
+            must_change_password=False,
+            failed_login_count=0,
+        ))
+        await session.commit()
+
+    transport = httpx.ASGITransport(app=app)
+    headers = {"X-Service-Token": TOKEN}
+    async with (
+        httpx.AsyncClient(
+            transport=transport,
+            base_url="http://identity",
+            headers=headers,
+        ) as first_device,
+        httpx.AsyncClient(
+            transport=transport,
+            base_url="http://identity",
+            headers=headers,
+        ) as second_device,
+    ):
+        credentials = {
+            "username": "single-user",
+            "password": "Password12345!",
+        }
+        assert (await first_device.post(
+            "/api/v1/auth/login", json=credentials
+        )).status_code == 200
+        assert (await first_device.get("/api/v1/auth/me")).status_code == 200
+
+        assert (await second_device.post(
+            "/api/v1/auth/login", json=credentials
+        )).status_code == 200
+        stale = await first_device.get("/api/v1/auth/me")
+        assert stale.status_code == 401
+        assert stale.json()["error"]["code"] == "session_replaced"
+        assert (await second_device.get("/api/v1/auth/me")).status_code == 200
+
+    async with session_factory() as session:
+        active_sessions = await session.scalar(
+            select(func.count())
+            .select_from(AuthSession)
+            .where(AuthSession.revoked_at.is_(None))
+        )
+        replacement_audits = await session.scalar(
+            select(func.count())
+            .select_from(AdminAuditLog)
+            .where(AdminAuditLog.action == "auth.session_replaced")
+        )
+    assert active_sessions == 1
+    assert replacement_audits == 1

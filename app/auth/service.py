@@ -35,6 +35,7 @@ from app.errors import (
     InvalidCredentialsError,
     PasswordChangeError,
     RegistrationDisabledError,
+    SessionReplacedError,
     UsernameUnavailableError,
 )
 
@@ -188,6 +189,16 @@ class AuthService:
         user.locked_until = None
         user.last_login_at = now
 
+        revoked = await self.session.execute(
+            update(AuthSession)
+            .where(
+                AuthSession.user_id == user.user_id,
+                AuthSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        revoked_count = max(int(getattr(revoked, "rowcount", 0) or 0), 0)
+
         session_token = generate_security_token()
         csrf_token = generate_security_token()
         auth_session = AuthSession(
@@ -203,6 +214,18 @@ class AuthService:
             created_at=now,
         )
         self.session.add(auth_session)
+        if revoked_count:
+            self.session.add(
+                AdminAuditLog(
+                    audit_id=str(uuid4()),
+                    actor_user_id=user.user_id,
+                    action="auth.session_replaced",
+                    target_type="user",
+                    target_id=user.user_id,
+                    outcome=AUDIT_OUTCOME_SUCCESS,
+                    details={"revoked_sessions": revoked_count},
+                )
+            )
         await self.session.commit()
         return IssuedSession(
             user=user,
@@ -232,9 +255,25 @@ class AuthService:
         idle_deadline = now - timedelta(
             minutes=self.settings.auth_session_idle_minutes
         )
+        if auth_session.revoked_at is not None:
+            replacement_session_id = await self.session.scalar(
+                select(AuthSession.session_id)
+                .where(
+                    AuthSession.user_id == auth_session.user_id,
+                    AuthSession.session_id != auth_session.session_id,
+                    AuthSession.revoked_at.is_(None),
+                    AuthSession.expires_at > now,
+                    AuthSession.last_seen_at > idle_deadline,
+                    AuthSession.created_at >= auth_session.revoked_at,
+                )
+                .limit(1)
+            )
+            if replacement_session_id is not None:
+                raise SessionReplacedError()
+            raise AuthenticationRequiredError()
+
         invalid_session = (
-            auth_session.revoked_at is not None
-            or auth_session.expires_at <= now
+            auth_session.expires_at <= now
             or auth_session.last_seen_at <= idle_deadline
             or user.status != USER_STATUS_ACTIVE
         )

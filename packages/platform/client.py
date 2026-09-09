@@ -2,7 +2,12 @@ import httpx
 import asyncio
 from weakref import WeakKeyDictionary
 from packages.platform.config import settings
-from app.errors import AppError, AuthenticationRequiredError, CsrfValidationError
+from app.errors import (
+    AppError,
+    AuthenticationRequiredError,
+    CsrfValidationError,
+    SessionReplacedError,
+)
 
 _clients = WeakKeyDictionary()
 
@@ -40,6 +45,14 @@ class ServiceClient:
             )
         except httpx.HTTPError as exc:
             raise DependencyUnavailable() from exc
+        error_code = None
+        if response.status_code in {401, 403}:
+            try:
+                error_code = response.json().get("error", {}).get("code")
+            except (AttributeError, ValueError):
+                error_code = None
+        if response.status_code == 401 and error_code == SessionReplacedError.code:
+            raise SessionReplacedError()
         if response.status_code == 401:
             raise AuthenticationRequiredError()
         if response.status_code == 403:

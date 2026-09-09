@@ -30,9 +30,12 @@ app.include_router(operations_router)
 
 
 @app.get("/", include_in_schema=False)
-async def home(context=Depends(get_optional_auth_context)):
+async def home(request: Request, context=Depends(get_optional_auth_context)):
     if context is None:
-        return RedirectResponse("/login?next=%2F", 303)
+        reason = "&reason=session_replaced" if getattr(
+            request.state, "auth_session_replaced", False
+        ) else ""
+        return RedirectResponse(f"/login?next=%2F{reason}", 303)
     if context.user.role == "admin":
         return RedirectResponse("/admin", 303)
     return FileResponse(PROJECT_ROOT / "app/static/index.html")
@@ -44,9 +47,12 @@ async def login():
 
 
 @app.get("/admin", include_in_schema=False)
-async def admin(context=Depends(get_optional_auth_context)):
+async def admin(request: Request, context=Depends(get_optional_auth_context)):
     if context is None:
-        return RedirectResponse("/login?next=%2Fadmin", 303)
+        reason = "&reason=session_replaced" if getattr(
+            request.state, "auth_session_replaced", False
+        ) else ""
+        return RedirectResponse(f"/login?next=%2Fadmin{reason}", 303)
     if context.user.role != "admin":
         return RedirectResponse("/", 303)
     return FileResponse(PROJECT_ROOT / "app/static/admin.html")
